@@ -6,7 +6,6 @@ export default function GlobeComponent({ cities, onCityClick }) {
   const [dimensions, setDimensions] = useState({ width: 800, height: 800 })
   const containerRef = useRef()
 
-  // 监听容器尺寸，让地球自适应
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -21,25 +20,23 @@ export default function GlobeComponent({ cities, onCityClick }) {
     return () => window.removeEventListener('resize', updateSize)
   }, [])
 
-  // 地球初始化后，自动旋转
   useEffect(() => {
     if (globeRef.current) {
-      globeRef.current.controls().autoRotate = true
+      globeRef.current.controls().autoRotate = false
       globeRef.current.controls().autoRotateSpeed = 0.5
     }
   }, [])
 
-  const handlePointClick = (point) => {
-    // 点击 marker 时，地球转到该点
+  const handleClick = (city) => {
+    console.log('点击城市：', city)
     if (globeRef.current) {
       globeRef.current.pointOfView(
-        { lat: point.lat, lng: point.lng, altitude: 1.5 },
+        { lat: city.lat, lng: city.lng, altitude: 1.5 },
         1000
       )
     }
-    // 通知父组件
     if (onCityClick) {
-      onCityClick(point)
+      onCityClick(city)
     }
   }
 
@@ -51,14 +48,30 @@ export default function GlobeComponent({ cities, onCityClick }) {
         height={dimensions.height}
         backgroundColor="rgba(0,0,0,0)"
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-        pointsData={cities}
-        pointLat="lat"
-        pointLng="lng"
-        pointColor={() => '#ff6b6b'}
-        pointAltitude={0.01}
-        pointRadius={0.4}
-        pointLabel="name"
-        onPointClick={handlePointClick}
+        htmlElementsData={cities}
+        htmlLat="lat"
+        htmlLng="lng"
+        htmlAltitude={0.01}
+        htmlElement={(city) => {
+          const el = document.createElement('div')
+          el.innerHTML = `
+            <div style="
+              width: 16px;
+              height: 16px;
+              border-radius: 50%;
+              background: #32bbe1;
+              box-shadow: 0 0 12px #32bbe1;
+              cursor: pointer;
+              transition: transform 0.2s;
+            "></div>
+          `
+          el.style.pointerEvents = 'auto'
+          el.style.cursor = 'pointer'
+          el.onclick = () => handleClick(city)
+          el.onmouseenter = () => el.firstElementChild.style.transform = 'scale(1.5)'
+          el.onmouseleave = () => el.firstElementChild.style.transform = 'scale(1)'
+          return el
+        }}
       />
     </div>
   )
