@@ -5,6 +5,20 @@ import GlobeComponent from './components/Globe'
 import MapCanvas from './components/MapCanvas'
 import LoginPage from './pages/LoginPage'
 import Navbar from './components/Navbar'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -20,6 +34,16 @@ function App() {
   const [leftTab, setLeftTab] = useState('pois')  // 'routes' | 'pois'
   const [cityRoutes, setCityRoutes] = useState([])    // 官方路线列表
   const [saving, setSaving] = useState(false)
+  const [optimizing, setOptimizing] = useState(false)
+  const [originalDistance, setOriginalDistance] = useState(null)
+  const [optimizedDistance, setOptimizedDistance] = useState(null)
+  const [savedDistance, setSavedDistance] = useState(null)
+  const [highlightedIds, setHighlightedIds] = useState(new Set())
+  const sensors = useSensors(
+  useSensor(PointerSensor, {
+    activationConstraint: { distance: 5 },
+  })
+)
 
   // 检查本地 token
   useEffect(() => {
@@ -144,6 +168,7 @@ const addToPlan = (poi) => {
       setPlanStops([])
     }
   }
+  
 const handleSave = async () => {
   if (saving) return
   if (!selectedCity || planStops.length === 0) {
@@ -151,6 +176,7 @@ const handleSave = async () => {
     setTimeout(() => setToast(null), 2000)
     return
   }
+  
 
   setSaving(true)
   try {
@@ -179,6 +205,78 @@ const handleSave = async () => {
   }
 }
 
+
+const handleDragEnd = (event) => {
+  const { active, over } = event
+  if (over && active.id !== over.id) {
+    const oldIndex = planStops.findIndex(s => s.poiId === active.id)
+    const newIndex = planStops.findIndex(s => s.poiId === over.id)
+    setPlanStops(arrayMove(planStops, oldIndex, newIndex))
+    setOriginalDistance(null)
+    setOptimizedDistance(null)
+    setSavedDistance(null)
+  }
+}
+
+const handleOptimize = async () => {
+  if (optimizing) return
+  if (planStops.length < 2) {
+    setToast('至少需要 2 个景点才能优化')
+    setTimeout(() => setToast(null), 2000)
+    return
+  }
+
+  setOptimizing(true)
+  const beforeIds = planStops.map(s => s.poiId)
+
+  try {
+    const res = await axios.post('/api/route/draft/optimize', {
+      nodes: planStops.map(stop => ({
+        poiId: stop.poiId,
+        name: stop.name,
+        lat: stop.lat,
+        lng: stop.lng,
+        stayDuration: stop.stayDuration,
+        tip: stop.tip,
+      })),
+    })
+
+    const data = res.data
+
+    setTimeout(() => {
+      const optimized = data.optimizedNodes.map(node => ({
+        poiId: node.poiId,
+        name: node.name,
+        lng: node.lng,
+        lat: node.lat,
+        stayDuration: node.stayDuration,
+        tip: node.tip || '',
+      }))
+
+      const afterIds = optimized.map(n => n.poiId)
+      const changedIds = new Set()
+      beforeIds.forEach((id, idx) => {
+        if (afterIds[idx] !== id) changedIds.add(id)
+      })
+
+      setPlanStops(optimized)
+      setOriginalDistance(data.originalDistance)
+      setOptimizedDistance(data.optimizedDistance)
+      setSavedDistance(data.savedDistance)
+      setHighlightedIds(changedIds)
+      setTimeout(() => setHighlightedIds(new Set()), 3000)
+      setOptimizing(false)
+
+      setToast(data.savedDistance > 0 ? 'AI 已优化路线顺序' : '当前顺序已经是最优')
+      setTimeout(() => setToast(null), 2500)
+    }, 800)
+  } catch (err) {
+    console.error('优化失败：', err)
+    setToast('优化失败：' + (err.response?.data?.message || err.message))
+    setTimeout(() => setToast(null), 3000)
+    setOptimizing(false)
+  }
+}
 
   // ========== 探索态 ==========
   if (mode === 'explore') {
@@ -367,51 +465,60 @@ const handleSave = async () => {
             color: 'white',
           }}
         >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white">我的计划（{planStops.length}）</h3>
-            <button
-              onClick={() => setRightOpen(false)}
-              className="text-gray-400 hover:text-white text-sm"
-            >
-              ▶
-            </button>
-          </div>
-          <div className="overflow-y-auto p-4 flex-1">
-            {planStops.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">
-                还没有添加景点
-                <br />
-                从左侧列表或地图上点击景点加入
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {planStops.map((stop, idx) => (
-                  <div
-                    key={stop.poiId}
-                    className="bg-gray-800 p-3 rounded flex justify-between items-start"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-blue-600 text-xs px-2 py-0.5 rounded text-white">
-                          {idx + 1}
-                        </span>
-                        <span className="font-medium text-sm truncate text-white">{stop.name}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1 ml-8">
-                        {stop.stayDuration} 分钟
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFromPlan(stop.poiId)}
-                      className="text-gray-400 hover:text-red-400 text-xs ml-2"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+         {/* 距离信息（优化后显示） */}
+{originalDistance !== null && (
+  <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
+    <div className="flex justify-between text-xs">
+      <span className="text-gray-400">总距离</span>
+      <span className="text-white">
+        {optimizedDistance} km
+        {savedDistance > 0 && (
+          <span className="text-green-400 ml-2">↓ {savedDistance} km</span>
+        )}
+      </span>
+    </div>
+    {savedDistance > 0 && (
+      <div className="flex justify-between text-xs mt-1">
+        <span className="text-gray-500">优化前</span>
+        <span className="text-gray-500 line-through">{originalDistance} km</span>
+      </div>
+    )}
+  </div>
+)}
+
+{/* 计划列表 —— 可拖拽 */}
+<div className="overflow-y-auto p-4 flex-1">
+  {planStops.length === 0 ? (
+    <p className="text-sm text-gray-400 text-center py-8">
+      还没有添加景点
+      <br />
+      从左侧列表或地图上点击景点加入
+    </p>
+  ) : (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={planStops.map(s => s.poiId)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2">
+          {planStops.map((stop, idx) => (
+            <SortableStop
+              key={stop.poiId}
+              stop={stop}
+              index={idx}
+              onRemove={removeFromPlan}
+              highlighted={highlightedIds.has(stop.poiId)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  )}
+</div>
           {planStops.length > 0 && (
             <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
               <button
@@ -420,9 +527,15 @@ const handleSave = async () => {
               >
                 清空
               </button>
-              <button className="flex-1 bg-blue-600 hover:bg-blue-700 rounded py-2 text-sm font-semibold transition text-white">
-                AI 优化
-              </button>
+           <button
+            onClick={handleOptimize}
+            disabled={optimizing}
+            className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
+              optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+          >
+            {optimizing ? 'AI 优化中...' : 'AI 优化'}
+          </button>
             </div>
           )}
         </div>
@@ -447,6 +560,53 @@ const handleSave = async () => {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+function SortableStop({ stop, index, onRemove, highlighted }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stop.poiId,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-3 rounded flex justify-between items-start transition-all duration-500 ${
+        highlighted
+          ? 'bg-green-900/40 border border-green-500'
+          : 'bg-gray-800 border border-transparent'
+      }`}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-gray-500 hover:text-white text-sm px-1 select-none"
+            title="拖拽调整顺序"
+          >
+            ≡
+          </span>
+          <span className="bg-blue-600 text-xs px-2 py-0.5 rounded text-white">
+            {index + 1}
+          </span>
+          <span className="font-medium text-sm truncate text-white">{stop.name}</span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1 ml-8">{stop.stayDuration} 分钟</p>
+      </div>
+      <button
+        onClick={() => onRemove(stop.poiId)}
+        className="text-gray-400 hover:text-red-400 text-xs ml-2"
+      >
+        ✕
+      </button>
     </div>
   )
 }
