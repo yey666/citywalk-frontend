@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 
-export default function ProfilePage({ onLogout }) {
+export default function ProfilePage({ onLogout, onGoHome }) {
   const [activeTab, setActiveTab] = useState('plans')
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,7 +51,12 @@ export default function ProfilePage({ onLogout }) {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
-      <Navbar onLogout={onLogout} />
+          <Navbar
+      onLogout={onLogout}
+      onGoHome={onGoHome}
+      onGoProfile={() => {}}
+      currentPage="profile"
+    />
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧栏 */}

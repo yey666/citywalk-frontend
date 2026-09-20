@@ -3,10 +3,7 @@ export default function Navbar({ onLogout, onGoProfile, onGoHome, currentPage })
 
   return (
     <nav className="h-14 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-6 flex-shrink-0">
-      <div 
-        className="text-white font-bold tracking-wide cursor-pointer"
-        onClick={onGoHome}
-      >
+      <div className="text-white font-bold tracking-wide cursor-pointer" onClick={onGoHome}>
         Citywalk
       </div>
       <div className="flex items-center gap-6">
