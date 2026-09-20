@@ -17,6 +17,8 @@ function App() {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [toast, setToast] = useState(null)
+  const [leftTab, setLeftTab] = useState('pois')  // 'routes' | 'pois'
+  const [cityRoutes, setCityRoutes] = useState([])    // 官方路线列表
 
   // 检查本地 token
   useEffect(() => {
@@ -36,13 +38,19 @@ function App() {
   }, [])
 
   // 选中城市时加载 POI
-  useEffect(() => {
-    if (selectedCity) {
-      axios.get(`/api/poi/by-city/${selectedCity.id}`)
-        .then(res => setCityPois(res.data))
-        .catch(err => console.error('加载 POI 失败：', err))
-    }
-  }, [selectedCity])
+ useEffect(() => {
+  if (selectedCity) {
+    // 加载 POI
+    axios.get(`/api/poi/by-city/${selectedCity.id}`)
+      .then(res => setCityPois(res.data))
+      .catch(err => console.error('加载 POI 失败：', err))
+
+    // 加载官方路线
+    axios.get(`/api/city/${selectedCity.id}/routes`)
+      .then(res => setCityRoutes(res.data))
+      .catch(err => console.error('加载路线失败：', err))
+  }
+}, [selectedCity])
 
   // 未登录 → 登录页
   if (checkingAuth) {
@@ -77,24 +85,55 @@ function App() {
     setSelectedCity(null)
     setPlanStops([])
   }
+const addToPlan = (poi) => {
+  if (planStops.find(s => s.poiId === poi.id)) return
+  setPlanStops([
+    ...planStops,
+    {
+      poiId: poi.id,
+      name: poi.name,
+      lng: poi.lng,
+      lat: poi.lat,
+      stayDuration: 60,
+      tip: poi.description || '',
+    },
+  ])
+  setToast(`已加入：${poi.name}`)
+  setTimeout(() => setToast(null), 2000)
+}
 
-  const addToPlan = (poi) => {
-    if (planStops.find(s => s.poiId === poi.id)) return
-    setPlanStops([
-      ...planStops,
-      {
-        poiId: poi.id,
-        name: poi.name,
-        lng: poi.lng,
-        lat: poi.lat,
-        stayDuration: 60,
-        tip: poi.description || '',
-      },
-    ])
-    setToast(`已加入：${poi.name}`)
-    setTimeout(() => setToast(null), 2000)
+
+  const addRouteToPlan = async (routeId) => {
+    try {
+      const res = await axios.get(`/api/route/${routeId}`)
+      const route = res.data
+
+      const newNodeStops = route.nodes
+        .filter(node => !planStops.find(s => s.poiId === node.poiId))
+        .map(node => ({
+          poiId: node.poiId,
+          name: node.poiName,
+          lng: node.lng,
+          lat: node.lat,
+          stayDuration: node.stayDuration,
+          tip: node.tip || '',
+        }))
+
+      if (newNodeStops.length === 0) {
+        setToast('该路线的景点已全部在计划中')
+        setTimeout(() => setToast(null), 2000)
+        return
+      }
+
+      setPlanStops([...planStops, ...newNodeStops])
+      setToast(`已加入「${route.title}」的 ${newNodeStops.length} 个景点`)
+      setTimeout(() => setToast(null), 2500)
+    } catch (err) {
+      console.error('加入路线失败：', err)
+      setToast('加入失败')
+      setTimeout(() => setToast(null), 2000)
+    }
   }
-
   const removeFromPlan = (poiId) => {
     setPlanStops(planStops.filter(s => s.poiId !== poiId))
   }
@@ -178,11 +217,65 @@ function App() {
               ◀
             </button>
           </div>
-          <div className="overflow-y-auto p-4 flex-1">
-            <p className="text-sm text-gray-300 mb-4">{selectedCity?.description}</p>
-            <h4 className="text-sm font-semibold mb-2 text-white">
+         <div className="overflow-y-auto p-4 flex-1">
+          <p className="text-sm text-gray-300 mb-4">{selectedCity?.description}</p>
+
+          {/* Tab 切换 */}
+        <div className="flex mb-4 bg-gray-800/60 rounded-lg p-1">
+            <button
+              onClick={() => setLeftTab('pois')}
+              className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
+                leftTab === 'pois' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
               景点列表（{cityPois.length}）
-            </h4>
+            </button>
+            <button
+              onClick={() => setLeftTab('routes')}
+              className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
+                leftTab === 'routes' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              推荐路线（{cityRoutes.length}）
+            </button>
+          </div>
+
+          {/* 推荐路线 tab */}
+          {leftTab === 'routes' && (
+            <div className="space-y-3">
+              {cityRoutes.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
+              ) : (
+                cityRoutes.map(route => (
+                  <div
+                    key={route.id}
+                    className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 transition"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold text-sm text-white flex-1">{route.title}</h4>
+                      <button
+                        onClick={() => addRouteToPlan(route.id)}
+                        className="ml-2 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap transition"
+                      >
+                        + 加入
+                      </button>
+                    </div>
+                    <div className="flex gap-2 text-xs text-gray-400 mb-2">
+                      <span>{route.theme}</span>
+                      <span>·</span>
+                      <span>{route.duration} 小时</span>
+                      <span>·</span>
+                      <span>{route.difficulty}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">{route.description}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* 景点列表 tab */}
+          {leftTab === 'pois' && (
             <div className="space-y-2">
               {cityPois.map(poi => {
                 const inPlan = planStops.some(s => s.poiId === poi.id)
@@ -207,7 +300,8 @@ function App() {
                 )
               })}
             </div>
-          </div>
+          )}
+        </div>
         </div>
 
         {/* 左浮层收起按钮 */}
