@@ -5,6 +5,7 @@ import GlobeComponent from './components/Globe'
 import MapCanvas from './components/MapCanvas'
 import LoginPage from './pages/LoginPage'
 import Navbar from './components/Navbar'
+import ProfilePage from './pages/ProfilePage'
 import {
   DndContext,
   closestCenter,
@@ -39,11 +40,21 @@ function App() {
   const [optimizedDistance, setOptimizedDistance] = useState(null)
   const [savedDistance, setSavedDistance] = useState(null)
   const [highlightedIds, setHighlightedIds] = useState(new Set())
+  const [page, setPage] = useState('home')  // 'home' | 'profile'
   const sensors = useSensors(
   useSensor(PointerSensor, {
     activationConstraint: { distance: 5 },
   })
 )
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('username')
+    localStorage.removeItem('nickname')
+    setUser(null)
+    setMode('explore')
+    setSelectedCity(null)
+  }
 
   // 检查本地 token
   useEffect(() => {
@@ -85,18 +96,15 @@ function App() {
   if (!user) {
     return <LoginPage onLogin={(data) => setUser(data)} />
   }
+  if (page === 'profile') {
+    return <ProfilePage onLogout={handleLogout} />
+  }
 
   // ========== 已登录 ==========
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('userId')
-    localStorage.removeItem('username')
-    localStorage.removeItem('nickname')
-    setUser(null)
-    setMode('explore')
-    setSelectedCity(null)
-  }
+
+  const goProfile = () => setPage('profile')
+  const goHome = () => setPage('home')
 
   const handleCityClick = (city) => {
     setSelectedCity(city)
@@ -282,7 +290,12 @@ const handleOptimize = async () => {
   if (mode === 'explore') {
     return (
       <div className="h-screen w-screen flex flex-col bg-black">
-        <Navbar onLogout={handleLogout} />
+        <Navbar 
+          onLogout={handleLogout} 
+          onGoProfile={goProfile} 
+          onGoHome={goHome}
+          currentPage={page}
+        />
         <div className="flex-1 relative overflow-hidden">
           <GlobeComponent cities={cities} onCityClick={handleCityClick} />
           <div className="absolute bottom-12 left-0 right-0 text-center pointer-events-none">
@@ -301,7 +314,12 @@ const handleOptimize = async () => {
   // ========== 规划态 ==========
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-900">
-      <Navbar onLogout={handleLogout} />
+     <Navbar 
+        onLogout={handleLogout} 
+        onGoProfile={goProfile} 
+        onGoHome={goHome}
+        currentPage={page}
+      />
 
       <div className="flex-1 relative overflow-hidden">
         {/* 全屏 2D 地图 */}
