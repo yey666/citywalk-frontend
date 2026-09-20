@@ -19,6 +19,7 @@ function App() {
   const [toast, setToast] = useState(null)
   const [leftTab, setLeftTab] = useState('pois')  // 'routes' | 'pois'
   const [cityRoutes, setCityRoutes] = useState([])    // 官方路线列表
+  const [saving, setSaving] = useState(false)
 
   // 检查本地 token
   useEffect(() => {
@@ -143,6 +144,41 @@ const addToPlan = (poi) => {
       setPlanStops([])
     }
   }
+const handleSave = async () => {
+  if (saving) return
+  if (!selectedCity || planStops.length === 0) {
+    setToast('请先添加景点')
+    setTimeout(() => setToast(null), 2000)
+    return
+  }
+
+  setSaving(true)
+  try {
+    const totalMinutes = planStops.reduce((sum, s) => sum + s.stayDuration, 0)
+    await axios.post('/api/route/save-draft', {
+      cityId: selectedCity.id,
+      title: `${selectedCity.name} · ${planStops.length} 个景点的计划`,
+      theme: '混合',
+      duration: Math.ceil(totalMinutes / 60),
+      difficulty: '轻松',
+      nodes: planStops.map((stop, idx) => ({
+        poiId: stop.poiId,
+        sortOrder: idx + 1,
+        stayDuration: stop.stayDuration,
+        tip: stop.tip,
+      })),
+    })
+    setToast('保存成功！已加入「我的计划」')
+    setTimeout(() => setToast(null), 2000)
+  } catch (err) {
+    console.error('保存失败：', err)
+    setToast('保存失败：' + (err.response?.data?.message || err.message))
+    setTimeout(() => setToast(null), 3000)
+  } finally {
+    setSaving(false)
+  }
+}
+
 
   // ========== 探索态 ==========
   if (mode === 'explore') {
@@ -192,9 +228,15 @@ const addToPlan = (poi) => {
             ← 返回
           </button>
           <div className="text-lg font-semibold">{selectedCity?.name}</div>
-          <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm font-semibold transition">
-            保存路线
-          </button>
+         <button
+          onClick={handleSave}
+          disabled={saving}
+          className={`px-4 py-2 rounded text-sm font-semibold transition ${
+            saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          {saving ? '保存中...' : '保存路线'}
+        </button>
         </div>
 
         {/* 左浮层：城市解说 + 景点列表 */}
