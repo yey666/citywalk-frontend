@@ -20,6 +20,7 @@ import GlobeComponent from './components/Globe'
 import MapCanvas from './components/MapCanvas'
 import LoginPage from './pages/LoginPage'
 import ProfilePage from './pages/ProfilePage'
+import RouteDetailPage from './pages/RouteDetailPage'
 import Navbar from './components/Navbar'
 
 // ==================== 可拖拽项组件 ====================
@@ -103,6 +104,13 @@ function App() {
   const [savedDistance, setSavedDistance] = useState(null)
   const [highlightedIds, setHighlightedIds] = useState(new Set())
 
+  // 路线详情页
+  const [routeDetailId, setRouteDetailId] = useState(() => {
+    const saved = localStorage.getItem('routeDetailId')
+    return saved ? Number(saved) : null
+  })
+  const [previewRoute, setPreviewRoute] = useState(null)
+
   // ========== 2. useSensors ==========
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -111,7 +119,6 @@ function App() {
   )
 
   // ========== 3. useEffect ==========
-  // 检查登录态
   useEffect(() => {
     const token = localStorage.getItem('token')
     const userId = localStorage.getItem('userId')
@@ -121,14 +128,12 @@ function App() {
     setCheckingAuth(false)
   }, [])
 
-  // 加载城市列表
   useEffect(() => {
     axios.get('/api/city/list')
       .then(res => setCities(res.data))
       .catch(err => console.error('加载城市失败：', err))
   }, [])
 
-  // 选中城市时加载 POI + 路线
   useEffect(() => {
     if (selectedCity) {
       axios.get(`/api/poi/by-city/${selectedCity.id}`)
@@ -141,7 +146,6 @@ function App() {
     }
   }, [selectedCity])
 
-  // selectedCity 同步到 localStorage
   useEffect(() => {
     if (selectedCity) {
       localStorage.setItem('selectedCity', JSON.stringify(selectedCity))
@@ -159,25 +163,29 @@ function App() {
     return <LoginPage onLogin={(data) => setUser(data)} />
   }
 
-  // ========== 5. 所有函数定义 ==========
+  // ========== 5. 所有函数 ==========
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('userId')
-    localStorage.removeItem('username')
-    localStorage.removeItem('nickname')
-    localStorage.removeItem('page')
-    localStorage.removeItem('mode')
-    localStorage.removeItem('selectedCity')
+    localStorage.clear()
     setUser(null)
     setMode('explore')
     setPage('home')
     setSelectedCity(null)
     setPlanStops([])
+    setRouteDetailId(null)
+    setPreviewRoute(null)
   }
 
   const goHome = () => {
     setPage('home')
+    setMode('explore')
+    setSelectedCity(null)
+    setPlanStops([])
+    setRouteDetailId(null)
+    setPreviewRoute(null)
     localStorage.setItem('page', 'home')
+    localStorage.setItem('mode', 'explore')
+    localStorage.removeItem('selectedCity')
+    localStorage.removeItem('routeDetailId')
   }
 
   const goProfile = () => {
@@ -185,10 +193,29 @@ function App() {
     localStorage.setItem('page', 'profile')
   }
 
+  const goRouteDetail = (routeId) => {
+    setRouteDetailId(routeId)
+    setPage('route')
+    localStorage.setItem('page', 'route')
+    localStorage.setItem('routeDetailId', String(routeId))
+  }
+
+  const previewRouteOnMap = async (routeId) => {
+    try {
+      const res = await axios.get(`/api/route/${routeId}`)
+      setPreviewRoute(res.data)
+      setToast(`已在地图上标出「${res.data.title}」的 ${res.data.nodes.length} 个点`)
+      setTimeout(() => setToast(null), 2500)
+    } catch (err) {
+      console.error('预览失败：', err)
+    }
+  }
+
   const handleCityClick = (city) => {
     setSelectedCity(city)
     setCityPois([])
     setPlanStops([])
+    setPreviewRoute(null)
     setMode('planning')
     localStorage.setItem('mode', 'planning')
   }
@@ -197,6 +224,7 @@ function App() {
     setMode('explore')
     setSelectedCity(null)
     setPlanStops([])
+    setPreviewRoute(null)
     localStorage.setItem('mode', 'explore')
   }
 
@@ -374,6 +402,17 @@ function App() {
     return <ProfilePage onLogout={handleLogout} onGoHome={goHome} />
   }
 
+  if (page === 'route') {
+    return (
+      <RouteDetailPage
+        routeId={routeDetailId}
+        onLogout={handleLogout}
+        onGoHome={goHome}
+        onGoProfile={goProfile}
+      />
+    )
+  }
+
   // ========== 7. 探索态 ==========
   if (mode === 'explore') {
     return (
@@ -410,12 +449,12 @@ function App() {
       />
 
       <div className="flex-1 relative overflow-hidden">
-        {/* 全屏 2D 地图 */}
         <div className="absolute inset-0 z-0">
           <MapCanvas
             center={selectedCity ? { lng: selectedCity.lng, lat: selectedCity.lat } : null}
             allPois={cityPois}
             planStops={planStops}
+            previewRoute={previewRoute}
             onPoiClick={(poi) => addToPlan(poi)}
           />
         </div>
@@ -467,7 +506,6 @@ function App() {
           <div className="overflow-y-auto p-4 flex-1">
             <p className="text-sm text-gray-300 mb-4">{selectedCity?.description}</p>
 
-            {/* Tab */}
             <div className="flex mb-4 bg-gray-800/60 rounded-lg p-1">
               <button
                 onClick={() => setLeftTab('pois')}
@@ -487,7 +525,6 @@ function App() {
               </button>
             </div>
 
-            {/* 景点列表 */}
             {leftTab === 'pois' && (
               <div className="space-y-2">
                 {cityPois.map(poi => {
@@ -515,7 +552,6 @@ function App() {
               </div>
             )}
 
-            {/* 推荐路线 */}
             {leftTab === 'routes' && (
               <div className="space-y-3">
                 {cityRoutes.length === 0 ? (
@@ -524,17 +560,10 @@ function App() {
                   cityRoutes.map(route => (
                     <div
                       key={route.id}
-                      className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 transition"
+                      onClick={() => goRouteDetail(route.id)}
+                      className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 cursor-pointer transition"
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-semibold text-sm text-white flex-1">{route.title}</h4>
-                        <button
-                          onClick={() => addRouteToPlan(route.id)}
-                          className="ml-2 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap transition"
-                        >
-                          + 加入
-                        </button>
-                      </div>
+                      <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
                       <div className="flex gap-2 text-xs text-gray-400 mb-2">
                         <span>{route.theme}</span>
                         <span>·</span>
@@ -542,7 +571,28 @@ function App() {
                         <span>·</span>
                         <span>{route.difficulty}</span>
                       </div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{route.description}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addRouteToPlan(route.id)
+                          }}
+                          className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
+                        >
+                          + 加入
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            previewRouteOnMap(route.id)
+                          }}
+                          className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
+                        >
+                          在地图上标出
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -551,7 +601,6 @@ function App() {
           </div>
         </div>
 
-        {/* 左浮层收起按钮 */}
         {!leftOpen && (
           <button
             onClick={() => setLeftOpen(true)}
@@ -582,7 +631,6 @@ function App() {
             </button>
           </div>
 
-          {/* 距离信息 */}
           {originalDistance !== null && (
             <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
               <div className="flex justify-between text-xs">
@@ -603,7 +651,6 @@ function App() {
             </div>
           )}
 
-          {/* 计划列表 */}
           <div className="overflow-y-auto p-4 flex-1">
             {planStops.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">
@@ -658,7 +705,6 @@ function App() {
           )}
         </div>
 
-        {/* 右浮层收起按钮 */}
         {!rightOpen && (
           <button
             onClick={() => setRightOpen(true)}
@@ -668,7 +714,6 @@ function App() {
           </button>
         )}
 
-        {/* Toast */}
         {toast && (
           <div
             className="absolute top-24 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
