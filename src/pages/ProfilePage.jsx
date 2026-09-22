@@ -1,232 +1,236 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import Navbar from '../components/Navbar'
+import { useEffect, useRef } from 'react'
 
-export default function ProfilePage({ onLogout, onGoHome }) {
-  const [activeTab, setActiveTab] = useState('plans')
-  const [plans, setPlans] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState(null)
-  const [expandedDetail, setExpandedDetail] = useState(null)
+export default function MapCanvas({
+  center,
+  allPois,
+  planStops,
+  previewRoute,
+  previewPois,
+  onPoiClick,
+}) {
+  const containerRef = useRef(null)
+  const mapRef = useRef(null)
+  const markersRef = useRef([])
+  const infoWindowRef = useRef(null)
 
-  const nickname = localStorage.getItem('nickname') || '用户'
-  const username = localStorage.getItem('username') || 'user'
-
+  // 初始化地图
   useEffect(() => {
-    axios.get('/api/user/my-plans')
-      .then(res => setPlans(res.data))
-      .catch(err => console.error('加载计划失败：', err))
-      .finally(() => setLoading(false))
+    if (!containerRef.current) return
+    if (mapRef.current) return
+
+    const initMap = () => {
+      if (mapRef.current) return
+      if (!window.AMap) return
+
+      const map = new window.AMap.Map(containerRef.current, {
+        zoom: 12,
+        center: center ? [center.lng, center.lat] : [113.121416, 23.021548],
+        viewMode: '2D',
+      })
+      mapRef.current = map
+    }
+
+    if (window.__AMAP_READY__ && window.AMap) {
+      initMap()
+    } else {
+      window.addEventListener('amap-ready', initMap)
+    }
+
+    return () => {
+      window.removeEventListener('amap-ready', initMap)
+      if (mapRef.current) {
+        mapRef.current.destroy()
+        mapRef.current = null
+      }
+    }
   }, [])
 
-  const handleExpand = async (routeId) => {
-    if (expandedId === routeId) {
-      setExpandedId(null)
-      setExpandedDetail(null)
-      return
+  // 中心变化
+  useEffect(() => {
+    if (mapRef.current && center) {
+      mapRef.current.setCenter([center.lng, center.lat])
     }
-    try {
-      const res = await axios.get(`/api/route/${routeId}`)
-      setExpandedId(routeId)
-      setExpandedDetail(res.data)
-    } catch (err) {
-      console.error('加载详情失败：', err)
-    }
-  }
+  }, [center])
 
-  const handleDelete = async (routeId) => {
-    if (!confirm('确定删除这个计划？')) return
-    try {
-      await axios.delete(`/api/route/${routeId}`)
-      setPlans(plans.filter(p => p.id !== routeId))
-      if (expandedId === routeId) {
-        setExpandedId(null)
-        setExpandedDetail(null)
+  // ========== markers 渲染（三段） ==========
+  useEffect(() => {
+    if (!mapRef.current || !window.AMap) return
+
+    markersRef.current.forEach(m => m.setMap(null))
+    markersRef.current = []
+
+    // ========== 第 1 段：所有 POI（蓝/灰） ==========
+    if (allPois && allPois.length > 0) {
+      const planIds = new Set(planStops.map(s => s.poiId))
+
+      allPois.forEach((poi) => {
+        const inPlan = planIds.has(poi.id)
+
+        const markerContent = inPlan
+          ? `<div style="
+              width: 20px; height: 20px;
+              border-radius: 50%;
+              background: #3b82f6;
+              border: 3px solid white;
+              box-shadow: 0 0 12px #3b82f6;
+              cursor: pointer;
+            "></div>`
+          : `<div style="
+              width: 12px; height: 12px;
+              border-radius: 50%;
+              background: rgba(156, 163, 175, 0.9);
+              border: 2px solid white;
+              cursor: pointer;
+            "></div>`
+
+        const marker = new window.AMap.Marker({
+          position: [poi.lng, poi.lat],
+          content: markerContent,
+          offset: new window.AMap.Pixel(-10, -10),
+          title: poi.name,
+        })
+
+        marker.setMap(mapRef.current)
+
+        marker.on('click', () => {
+          if (infoWindowRef.current) {
+            infoWindowRef.current.close()
+          }
+
+          const infoContent = inPlan
+            ? `<div style="padding: 10px; min-width: 140px; font-family: system-ui;">
+                <div style="font-weight: 600; margin-bottom: 4px; font-size: 14px;">${poi.name}</div>
+                <div style="font-size: 12px; color: #3b82f6;">✓ 已在计划中</div>
+              </div>`
+            : `<div style="padding: 10px; min-width: 160px; font-family: system-ui;">
+                <div style="font-weight: 600; margin-bottom: 4px; font-size: 14px;">${poi.name}</div>
+                <div style="font-size: 12px; color: #888; margin-bottom: 10px;">${poi.category || ''}</div>
+                <button data-poi-id="${poi.id}" class="add-poi-btn" style="background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">+ 加入计划</button>
+              </div>`
+
+          const infoWindow = new window.AMap.InfoWindow({
+            content: infoContent,
+            offset: new window.AMap.Pixel(0, -20),
+          })
+          infoWindow.open(mapRef.current, [poi.lng, poi.lat])
+          infoWindowRef.current = infoWindow
+
+          setTimeout(() => {
+            const btn = document.querySelector(`.add-poi-btn[data-poi-id="${poi.id}"]`)
+            if (btn) {
+              btn.onclick = () => {
+                onPoiClick(poi)
+                infoWindow.close()
+                infoWindowRef.current = null
+              }
+            }
+          }, 0)
+        })
+
+        markersRef.current.push(marker)
+      })
+    }
+
+    // ========== 第 2 段：多点预览（黄色） ==========
+    if (previewPois && previewPois.length > 0) {
+      previewPois.forEach((poi, idx) => {
+        const isLatest = idx === previewPois.length - 1
+        const opacity = isLatest ? 1 : 0.4
+        const size = isLatest ? 32 : 24
+
+        const markerContent = `
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50%;
+            background: #eab308;
+            border: 3px solid white;
+            box-shadow: 0 0 ${isLatest ? '16' : '6'}px rgba(234, 179, 8, ${opacity});
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: ${isLatest ? '14' : '11'}px;
+            opacity: ${opacity};
+            transition: all 0.3s;
+          ">${previewPois.length > 1 ? idx + 1 : '📍'}</div>
+        `
+
+        const marker = new window.AMap.Marker({
+          position: [poi.lng, poi.lat],
+          content: markerContent,
+          offset: new window.AMap.Pixel(-size / 2, -size / 2),
+          title: poi.name,
+        })
+
+        marker.setMap(mapRef.current)
+        markersRef.current.push(marker)
+      })
+
+      // 地图平移到最新的点
+      const latest = previewPois[previewPois.length - 1]
+      mapRef.current.setCenter([latest.lng, latest.lat])
+    }
+
+    // ========== 第 3 段：路线预览（橙色编号 + 连线） ==========
+    if (previewRoute && previewRoute.nodes && previewRoute.nodes.length > 0) {
+      const path = []
+
+      previewRoute.nodes.forEach((node) => {
+        if (!node.lng || !node.lat) return
+
+        path.push([node.lng, node.lat])
+
+        const markerContent = `
+          <div style="
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #f97316;
+            border: 3px solid white;
+            box-shadow: 0 0 12px rgba(249, 115, 22, 0.8);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+          ">${node.order}</div>
+        `
+
+        const marker = new window.AMap.Marker({
+          position: [node.lng, node.lat],
+          content: markerContent,
+          offset: new window.AMap.Pixel(-14, -14),
+          title: node.poiName,
+        })
+
+        marker.setMap(mapRef.current)
+        markersRef.current.push(marker)
+      })
+
+      // 画连线
+      if (path.length > 1) {
+        const polyline = new window.AMap.Polyline({
+          path,
+          strokeColor: '#f97316',
+          strokeWeight: 4,
+          strokeStyle: 'solid',
+          lineJoin: 'round',
+        })
+        polyline.setMap(mapRef.current)
+        markersRef.current.push(polyline)
       }
-    } catch (err) {
-      console.error('删除失败：', err)
-      alert('删除失败：' + (err.response?.data?.message || err.message))
+
+      // 缩放到能看到所有点
+      const markers = markersRef.current.filter(m => m instanceof window.AMap.Marker)
+      if (markers.length > 0) {
+        mapRef.current.setFitView(markers, false, [80, 80, 80, 80])
+      }
     }
-  }
+  }, [allPois, planStops, previewPois, previewRoute, onPoiClick])
 
-  return (
-    <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
-          <Navbar
-      onLogout={onLogout}
-      onGoHome={onGoHome}
-      onGoProfile={() => {}}
-      currentPage="profile"
-    />
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* 左侧栏 */}
-        <aside className="w-72 bg-gray-950 border-r border-gray-800 flex flex-col flex-shrink-0">
-          {/* 用户信息 */}
-          <div className="p-6 border-b border-gray-800">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mb-4">
-              {nickname.charAt(0).toUpperCase()}
-            </div>
-            <h2 className="text-lg font-semibold text-white">{nickname}</h2>
-            <p className="text-xs text-gray-500 mt-1">@{username}</p>
-          </div>
-
-          {/* 侧边导航 */}
-          <nav className="flex-1 p-3">
-            <button
-              onClick={() => setActiveTab('plans')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition mb-1 ${
-                activeTab === 'plans'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <span>📋</span>
-                <span>我的计划</span>
-              </span>
-              <span className="text-xs">{plans.length}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('collections')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition mb-1 ${
-                activeTab === 'collections'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <span>⭐</span>
-                <span>我的收藏</span>
-              </span>
-              <span className="text-xs">0</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition ${
-                activeTab === 'posts'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-3">
-                <span>📝</span>
-                <span>我的发布</span>
-              </span>
-              <span className="text-xs">0</span>
-            </button>
-          </nav>
-
-          {/* 底部退出 */}
-          <div className="p-3 border-t border-gray-800">
-            <button
-              onClick={onLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-red-400 transition"
-            >
-              <span>🚪</span>
-              <span>退出登录</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* 右侧内容区 */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-8 py-10">
-            {/* 我的计划 */}
-            {activeTab === 'plans' && (
-              <>
-                <h1 className="text-2xl font-bold mb-6">我的计划</h1>
-
-                {loading ? (
-                  <p className="text-gray-500">加载中...</p>
-                ) : plans.length === 0 ? (
-                  <div className="text-center py-20 text-gray-500">
-                    <p className="text-lg mb-2">还没有保存任何计划</p>
-                    <p className="text-sm">去首页规划你的第一条路线吧</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {plans.map(plan => (
-                      <div
-                        key={plan.id}
-                        className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden hover:border-gray-600 transition"
-                      >
-                        <div className="p-5 flex justify-between items-start">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-white mb-2 truncate">
-                              {plan.title}
-                            </h3>
-                            <div className="flex gap-3 text-xs text-gray-400">
-                              {plan.duration && <span>{plan.duration} 小时</span>}
-                              {plan.theme && <span>· {plan.theme}</span>}
-                              {plan.createdAt && (
-                                <span>· {plan.createdAt.split('T')[0]}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4 flex-shrink-0">
-                            <button
-                              onClick={() => handleExpand(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
-                            >
-                              {expandedId === plan.id ? '收起' : '查看'}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-red-600 rounded transition"
-                            >
-                              删除
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* 展开详情 */}
-                        {expandedId === plan.id && expandedDetail && (
-                          <div className="border-t border-gray-700 p-5 bg-gray-900/50">
-                            {expandedDetail.nodes?.map((node, idx) => (
-                              <div key={idx} className="flex gap-3 py-2">
-                                <span className="bg-blue-600 text-xs px-2 py-0.5 rounded h-fit mt-0.5 flex-shrink-0">
-                                  {node.order}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm text-white">{node.poiName}</p>
-                                  <p className="text-xs text-gray-400 mt-0.5">
-                                    {node.stayDuration} 分钟
-                                  </p>
-                                  {node.tip && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      💡 {node.tip}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {activeTab === 'collections' && (
-              <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2">收藏功能开发中</p>
-                <p className="text-sm">敬请期待</p>
-              </div>
-            )}
-
-            {activeTab === 'posts' && (
-              <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2">社区功能开发中</p>
-                <p className="text-sm">敬请期待</p>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-  )
+  return <div ref={containerRef} className="w-full h-full" />
 }

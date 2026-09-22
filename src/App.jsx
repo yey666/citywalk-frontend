@@ -103,6 +103,7 @@ function App() {
   const [optimizedDistance, setOptimizedDistance] = useState(null)
   const [savedDistance, setSavedDistance] = useState(null)
   const [highlightedIds, setHighlightedIds] = useState(new Set())
+  const [previewPois, setPreviewPois] = useState([])   // 数组，最多 5 个
 
   // 路线详情页
   const [routeDetailId, setRouteDetailId] = useState(() => {
@@ -164,6 +165,17 @@ function App() {
   }
 
   // ========== 5. 所有函数 ==========
+    const previewPoiOnMap = (poi) => {
+       console.log('previewPoiOnMap 被调用', poi) 
+    setPreviewRoute(null)   // 清掉路线预览
+    setPreviewPois(prev => {
+      // 如果已存在，不重复加
+      if (prev.find(p => p.id === poi.id)) return prev
+      // 加进数组，超过 5 个就丢掉最早的
+      const next = [...prev, poi]
+      return next.length > 5 ? next.slice(next.length - 5) : next
+    })
+  }
   const handleLogout = () => {
     localStorage.clear()
     setUser(null)
@@ -218,6 +230,8 @@ function App() {
     setPreviewRoute(null)
     setMode('planning')
     localStorage.setItem('mode', 'planning')
+    setPreviewPois([])
+    setPreviewRoute(null)
   }
 
   const handleBack = () => {
@@ -226,6 +240,8 @@ function App() {
     setPlanStops([])
     setPreviewRoute(null)
     localStorage.setItem('mode', 'explore')
+    setPreviewPois([])
+    setPreviewRoute(null)
   }
 
   const addToPlan = (poi) => {
@@ -455,6 +471,7 @@ function App() {
             allPois={cityPois}
             planStops={planStops}
             previewRoute={previewRoute}
+            previewPois={previewPois}
             onPoiClick={(poi) => addToPlan(poi)}
           />
         </div>
@@ -527,28 +544,37 @@ function App() {
 
             {leftTab === 'pois' && (
               <div className="space-y-2">
-                {cityPois.map(poi => {
-                  const inPlan = planStops.some(s => s.poiId === poi.id)
-                  return (
-                    <div
-                      key={poi.id}
-                      className="bg-gray-800 p-2 rounded flex justify-between items-center text-sm"
+            {cityPois.map(poi => {
+                const inPlan = planStops.some(s => s.poiId === poi.id)
+                const isPreviewed = previewPois.some(p => p.id === poi.id)
+                return (
+                  <div
+                    key={poi.id}
+                    className={`p-2 rounded flex justify-between items-center text-sm transition ${
+                      isPreviewed ? 'bg-yellow-900/30 border border-yellow-600' : 'bg-gray-800 border border-transparent'
+                    }`}
+                  >
+                    <span
+                      onClick={() => previewPoiOnMap(poi)}
+                      className="truncate flex-1 text-white cursor-pointer hover:text-yellow-400"
+                      title="点击在地图上预览"
                     >
-                      <span className="truncate flex-1 text-white">{poi.name}</span>
-                      <button
-                        onClick={() => addToPlan(poi)}
-                        disabled={inPlan}
-                        className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
-                          inPlan
-                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                      >
-                        {inPlan ? '已加' : '+ 加入'}
-                      </button>
-                    </div>
-                  )
-                })}
+                      {poi.name}
+                    </span>
+                    <button
+                      onClick={() => addToPlan(poi)}
+                      disabled={inPlan}
+                      className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                        inPlan
+                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
+                    >
+                      {inPlan ? '已加' : '+ 加入'}
+                    </button>
+                  </div>
+                )
+              })}
               </div>
             )}
 
