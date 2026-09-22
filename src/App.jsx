@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react'
+import CityDetailPage from './pages/CityDetailPage'
 import axios from 'axios'
 import {
   DndContext,
@@ -104,6 +105,7 @@ function App() {
   const [savedDistance, setSavedDistance] = useState(null)
   const [highlightedIds, setHighlightedIds] = useState(new Set())
   const [previewPois, setPreviewPois] = useState([])   // 数组，最多 5 个
+  const [loggingIn, setLoggingIn] = useState(false)
 
   // 路线详情页
   const [routeDetailId, setRouteDetailId] = useState(() => {
@@ -157,13 +159,11 @@ function App() {
 
   // ========== 4. 登录判断 ==========
   if (checkingAuth) {
-    return <div className="h-screen w-screen bg-gray-950" />
-  }
+  return <div className="h-screen w-screen bg-gray-950" />
+}
 
-  if (!user) {
-    return <LoginPage onLogin={(data) => setUser(data)} />
-  }
-
+// 这里不再 return 登录页
+// 登录页会在最外层作为覆盖层渲染
   // ========== 5. 所有函数 ==========
     const previewPoiOnMap = (poi) => {
        console.log('previewPoiOnMap 被调用', poi) 
@@ -187,18 +187,19 @@ function App() {
     setPreviewRoute(null)
   }
 
-  const goHome = () => {
-    setPage('home')
-    setMode('explore')
-    setSelectedCity(null)
-    setPlanStops([])
-    setRouteDetailId(null)
-    setPreviewRoute(null)
-    localStorage.setItem('page', 'home')
-    localStorage.setItem('mode', 'explore')
-    localStorage.removeItem('selectedCity')
-    localStorage.removeItem('routeDetailId')
-  }
+const goHome = () => {
+  setPage('home')
+  setMode('explore')
+  setSelectedCity(null)
+  setPlanStops([])
+  setRouteDetailId(null)
+  setPreviewRoute(null)
+  setPreviewPois([])
+  localStorage.setItem('page', 'home')
+  localStorage.setItem('mode', 'explore')
+  localStorage.removeItem('selectedCity')
+  localStorage.removeItem('routeDetailId')
+}
 
   const goProfile = () => {
     setPage('profile')
@@ -224,15 +225,11 @@ function App() {
   }
 
   const handleCityClick = (city) => {
-    setSelectedCity(city)
-    setCityPois([])
-    setPlanStops([])
-    setPreviewRoute(null)
-    setMode('planning')
-    localStorage.setItem('mode', 'planning')
-    setPreviewPois([])
-    setPreviewRoute(null)
-  }
+  setSelectedCity(city)
+  setPage('city')
+  localStorage.setItem('page', 'city')
+  localStorage.setItem('selectedCity', JSON.stringify(city))
+}
 
   const handleBack = () => {
     setMode('explore')
@@ -413,342 +410,420 @@ function App() {
     }
   }
 
-  // ========== 6. 页面切换 ==========
-  if (page === 'profile') {
-    return <ProfilePage onLogout={handleLogout} onGoHome={goHome} />
-  }
+   // ========== 6. 页面切换 ==========
+  const renderMainContent = () => {
+    // 个人中心：盖在地球上
+    if (page === 'profile') {
+      return (
+        <div className="absolute inset-0 z-30">
+          <ProfilePage onLogout={handleLogout} onGoHome={goHome} />
+        </div>
+      )
+    }
 
-  if (page === 'route') {
-    return (
-      <RouteDetailPage
-        routeId={routeDetailId}
-        onLogout={handleLogout}
-        onGoHome={goHome}
-        onGoProfile={goProfile}
-      />
-    )
-  }
+    // 路线详情：盖在地球上
+    if (page === 'route') {
+      return (
+        <div className="absolute inset-0 z-30">
+          <RouteDetailPage
+            routeId={routeDetailId}
+            onLogout={handleLogout}
+            onGoHome={goHome}
+            onGoProfile={goProfile}
+          />
+        </div>
+      )
+    }
+    if (page === 'city') {
+      return (
+        <CityDetailPage
+          city={selectedCity}
+          onBack={() => {
+            setPage('home')
+            setMode('explore')
+            setSelectedCity(null)
+            localStorage.setItem('page', 'home')
+            localStorage.removeItem('selectedCity')
+          }}
+          onStartPlan={(markedIds) => {
+            // 今天先跳现有工作台
+            setMode('planning')
+            localStorage.setItem('mode', 'planning')
+          }}
+          onGoRouteDetail={(routeId) => goRouteDetail(routeId)}
+        />
+      )
+    }
 
-  // ========== 7. 探索态 ==========
-  if (mode === 'explore') {
+    // 探索态 / 规划态：地球和工作台互斥
+    if (mode === 'explore') {
+      return (
+        <div className="h-full w-full flex flex-col bg-black">
+          <Navbar
+            onLogout={handleLogout}
+            onGoProfile={goProfile}
+            onGoHome={goHome}
+            currentPage={page}
+          />
+          <div className="flex-1 relative overflow-hidden">
+            <GlobeComponent cities={cities} onCityClick={handleCityClick} />
+            <div className="absolute bottom-12 left-0 right-0 text-center pointer-events-none">
+              <p className="text-gray-300 text-lg animate-pulse">
+                点击地球上的城市，开始你的 Citywalk
+              </p>
+              <p className="text-gray-500 text-sm mt-2">
+                佛山 · 广州 · 珠海 · 苏州 · 成都 · 西安 · 杭州 · 厦门
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // ========== 7. 规划态 ==========
     return (
-      <div className="h-screen w-screen flex flex-col bg-black">
+      <div className="h-full w-full flex flex-col bg-gray-900">
         <Navbar
           onLogout={handleLogout}
           onGoProfile={goProfile}
           onGoHome={goHome}
           currentPage={page}
         />
+
         <div className="flex-1 relative overflow-hidden">
-          <GlobeComponent cities={cities} onCityClick={handleCityClick} />
-          <div className="absolute bottom-12 left-0 right-0 text-center pointer-events-none">
-            <p className="text-gray-300 text-lg animate-pulse">
-              点击地球上的城市，开始你的 Citywalk
-            </p>
-            <p className="text-gray-500 text-sm mt-2">
-              佛山 · 广州 · 珠海 · 苏州 · 成都 · 西安 · 杭州 · 厦门
-            </p>
+          <div className="absolute inset-0 z-0">
+            <MapCanvas
+              center={selectedCity ? { lng: selectedCity.lng, lat: selectedCity.lat } : null}
+              allPois={cityPois}
+              planStops={planStops}
+              previewRoute={previewRoute}
+              previewPois={previewPois}
+              onPoiClick={(poi) => addToPlan(poi)}
+            />
           </div>
+
+          {/* 顶部条 */}
+          <div
+            className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 border-b border-gray-700"
+            style={{ background: 'rgba(17, 24, 39, 0.98)' }}
+          >
+            <button
+              onClick={handleBack}
+              className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm transition"
+            >
+              ← 返回
+            </button>
+            <div className="text-lg font-semibold">{selectedCity?.name}</div>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {saving ? '保存中...' : '保存路线'}
+            </button>
+          </div>
+
+          {/* 左浮层 */}
+          <div
+            className={`absolute left-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
+              leftOpen ? 'translate-x-0' : '-translate-x-[340px]'
+            }`}
+            style={{
+              maxHeight: 'calc(100vh - 160px)',
+              background: 'rgba(17, 24, 39, 0.98)',
+              color: 'white',
+            }}
+          >
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+              <h3 className="font-semibold text-white">{selectedCity?.name}景点</h3>
+              <button
+                onClick={() => setLeftOpen(false)}
+                className="text-gray-400 hover:text-white text-sm"
+              >
+                ◀
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex-1">
+              <p className="text-sm text-gray-300 mb-4">{selectedCity?.description}</p>
+
+              <div className="flex mb-4 bg-gray-800/60 rounded-lg p-1">
+                <button
+                  onClick={() => setLeftTab('pois')}
+                  className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
+                    leftTab === 'pois' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  景点列表（{cityPois.length}）
+                </button>
+                <button
+                  onClick={() => setLeftTab('routes')}
+                  className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
+                    leftTab === 'routes' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  推荐路线（{cityRoutes.length}）
+                </button>
+              </div>
+
+              {leftTab === 'pois' && (
+                <div className="space-y-2">
+                  {cityPois.map(poi => {
+                    const inPlan = planStops.some(s => s.poiId === poi.id)
+                    const isPreviewed = previewPois.some(p => p.id === poi.id)
+                    return (
+                      <div
+                        key={poi.id}
+                        className={`p-2 rounded flex justify-between items-center text-sm transition ${
+                          isPreviewed ? 'bg-yellow-900/30 border border-yellow-600' : 'bg-gray-800 border border-transparent'
+                        }`}
+                      >
+                        <span
+                          onClick={() => previewPoiOnMap(poi)}
+                          className="truncate flex-1 text-white cursor-pointer hover:text-yellow-400"
+                          title="点击在地图上预览"
+                        >
+                          {poi.name}
+                        </span>
+                        <button
+                          onClick={() => addToPlan(poi)}
+                          disabled={inPlan}
+                          className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                            inPlan
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                        >
+                          {inPlan ? '已加' : '+ 加入'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {leftTab === 'routes' && (
+                <div className="space-y-3">
+                  {cityRoutes.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
+                  ) : (
+                    cityRoutes.map(route => (
+                      <div
+                        key={route.id}
+                        onClick={() => goRouteDetail(route.id)}
+                        className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 cursor-pointer transition"
+                      >
+                        <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
+                        <div className="flex gap-2 text-xs text-gray-400 mb-2">
+                          <span>{route.theme}</span>
+                          <span>·</span>
+                          <span>{route.duration} 小时</span>
+                          <span>·</span>
+                          <span>{route.difficulty}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              addRouteToPlan(route.id)
+                            }}
+                            className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
+                          >
+                            + 加入
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              previewRouteOnMap(route.id)
+                            }}
+                            className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
+                          >
+                            在地图上标出
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {!leftOpen && (
+            <button
+              onClick={() => setLeftOpen(true)}
+              className="absolute left-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
+            >
+              ▶
+            </button>
+          )}
+
+          {/* 右浮层 */}
+          <div
+            className={`absolute right-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
+              rightOpen ? 'translate-x-0' : 'translate-x-[340px]'
+            }`}
+            style={{
+              maxHeight: 'calc(100vh - 160px)',
+              background: 'rgba(17, 24, 39, 0.98)',
+              color: 'white',
+            }}
+          >
+            <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
+              <h3 className="font-semibold text-white">我的计划（{planStops.length}）</h3>
+              <button
+                onClick={() => setRightOpen(false)}
+                className="text-gray-400 hover:text-white text-sm"
+              >
+                ▶
+              </button>
+            </div>
+
+            {originalDistance !== null && (
+              <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">总距离</span>
+                  <span className="text-white">
+                    {optimizedDistance} km
+                    {savedDistance > 0 && (
+                      <span className="text-green-400 ml-2">↓ {savedDistance} km</span>
+                    )}
+                  </span>
+                </div>
+                {savedDistance > 0 && (
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-gray-500">优化前</span>
+                    <span className="text-gray-500 line-through">{originalDistance} km</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="overflow-y-auto p-4 flex-1">
+              {planStops.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  还没有添加景点
+                  <br />
+                  从左侧列表或地图上点击景点加入
+                </p>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={planStops.map(s => s.poiId)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-2">
+                      {planStops.map((stop, idx) => (
+                        <SortableStop
+                          key={stop.poiId}
+                          stop={stop}
+                          index={idx}
+                          onRemove={removeFromPlan}
+                          highlighted={highlightedIds.has(stop.poiId)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+
+            {planStops.length > 0 && (
+              <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
+                <button
+                  onClick={clearPlan}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-2 text-sm transition text-white"
+                >
+                  清空
+                </button>
+                <button
+                  onClick={handleOptimize}
+                  disabled={optimizing}
+                  className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
+                    optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {optimizing ? 'AI 优化中...' : 'AI 优化'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!rightOpen && (
+            <button
+              onClick={() => setRightOpen(true)}
+              className="absolute right-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
+            >
+              ◀
+            </button>
+          )}
+
+          {toast && (
+            <div
+              className="absolute top-24 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+              style={{ animation: 'fadeIn 0.3s ease-out' }}
+            >
+              {toast}
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // ========== 8. 规划态 ==========
+  // ========== 8. 最外层容器 ==========
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-900">
-      <Navbar
-        onLogout={handleLogout}
-        onGoProfile={goProfile}
-        onGoHome={goHome}
-        currentPage={page}
-      />
+    <div className="h-screen w-screen relative bg-gray-950">
+      {/* 主内容：地球 / 工作台 / 个人中心 / 路线详情 */}
+      <div
+        className={`h-full w-full transition-opacity duration-700 ${
+          loggingIn ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        {renderMainContent()}
+      </div>
 
-      <div className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <MapCanvas
-            center={selectedCity ? { lng: selectedCity.lng, lat: selectedCity.lat } : null}
-            allPois={cityPois}
-            planStops={planStops}
-            previewRoute={previewRoute}
-            previewPois={previewPois}
-            onPoiClick={(poi) => addToPlan(poi)}
+      {/* 登录页：盖在最上层 */}
+      {!user && (
+        <div className="absolute inset-0 z-50">
+          <LoginPage
+            onLogin={(data) => {
+              setLoggingIn(true)
+              setTimeout(() => {
+                setUser(data)
+                setPage('home')
+                setMode('explore')
+                localStorage.setItem('page', 'home')
+                localStorage.setItem('mode', 'explore')
+                setLoggingIn(false)
+              }, 800)
+            }}
           />
         </div>
+      )}
 
-        {/* 顶部条 */}
-        <div
-          className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 border-b border-gray-700"
-          style={{ background: 'rgba(17, 24, 39, 0.98)' }}
-        >
-          <button
-            onClick={handleBack}
-            className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm transition"
-          >
-            ← 返回
-          </button>
-          <div className="text-lg font-semibold">{selectedCity?.name}</div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-4 py-2 rounded text-sm font-semibold transition ${
-              saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
-            {saving ? '保存中...' : '保存路线'}
-          </button>
-        </div>
-
-        {/* 左浮层 */}
-        <div
-          className={`absolute left-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
-            leftOpen ? 'translate-x-0' : '-translate-x-[340px]'
-          }`}
-          style={{
-            maxHeight: 'calc(100vh - 160px)',
-            background: 'rgba(17, 24, 39, 0.98)',
-            color: 'white',
-          }}
-        >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white">{selectedCity?.name}景点</h3>
-            <button
-              onClick={() => setLeftOpen(false)}
-              className="text-gray-400 hover:text-white text-sm"
-            >
-              ◀
-            </button>
-          </div>
-
-          <div className="overflow-y-auto p-4 flex-1">
-            <p className="text-sm text-gray-300 mb-4">{selectedCity?.description}</p>
-
-            <div className="flex mb-4 bg-gray-800/60 rounded-lg p-1">
-              <button
-                onClick={() => setLeftTab('pois')}
-                className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
-                  leftTab === 'pois' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                景点列表（{cityPois.length}）
-              </button>
-              <button
-                onClick={() => setLeftTab('routes')}
-                className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
-                  leftTab === 'routes' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                推荐路线（{cityRoutes.length}）
-              </button>
-            </div>
-
-            {leftTab === 'pois' && (
-              <div className="space-y-2">
-            {cityPois.map(poi => {
-                const inPlan = planStops.some(s => s.poiId === poi.id)
-                const isPreviewed = previewPois.some(p => p.id === poi.id)
-                return (
-                  <div
-                    key={poi.id}
-                    className={`p-2 rounded flex justify-between items-center text-sm transition ${
-                      isPreviewed ? 'bg-yellow-900/30 border border-yellow-600' : 'bg-gray-800 border border-transparent'
-                    }`}
-                  >
-                    <span
-                      onClick={() => previewPoiOnMap(poi)}
-                      className="truncate flex-1 text-white cursor-pointer hover:text-yellow-400"
-                      title="点击在地图上预览"
-                    >
-                      {poi.name}
-                    </span>
-                    <button
-                      onClick={() => addToPlan(poi)}
-                      disabled={inPlan}
-                      className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
-                        inPlan
-                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      {inPlan ? '已加' : '+ 加入'}
-                    </button>
-                  </div>
-                )
-              })}
-              </div>
-            )}
-
-            {leftTab === 'routes' && (
-              <div className="space-y-3">
-                {cityRoutes.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
-                ) : (
-                  cityRoutes.map(route => (
-                    <div
-                      key={route.id}
-                      onClick={() => goRouteDetail(route.id)}
-                      className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 cursor-pointer transition"
-                    >
-                      <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
-                      <div className="flex gap-2 text-xs text-gray-400 mb-2">
-                        <span>{route.theme}</span>
-                        <span>·</span>
-                        <span>{route.duration} 小时</span>
-                        <span>·</span>
-                        <span>{route.difficulty}</span>
-                      </div>
-                      <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            addRouteToPlan(route.id)
-                          }}
-                          className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
-                        >
-                          + 加入
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            previewRouteOnMap(route.id)
-                          }}
-                          className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
-                        >
-                          在地图上标出
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+      {/* 过渡层：从登录到地球 */}
+      {loggingIn && (
+        <div className="absolute inset-0 z-[60] bg-gray-950 flex items-center justify-center animate-fade-out-800">
+          <div className="text-center">
+            <p className="text-white/90 text-2xl tracking-[0.3em]">
+              世界之大
+            </p>
+            <p className="text-white/60 text-2xl tracking-[0.3em] mt-3">
+              为何我们相遇
+            </p>
+            <div className="mt-6 mx-auto w-12 h-px bg-orange-400/60" />
           </div>
         </div>
-
-        {!leftOpen && (
-          <button
-            onClick={() => setLeftOpen(true)}
-            className="absolute left-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
-          >
-            ▶
-          </button>
-        )}
-
-        {/* 右浮层 */}
-        <div
-          className={`absolute right-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
-            rightOpen ? 'translate-x-0' : 'translate-x-[340px]'
-          }`}
-          style={{
-            maxHeight: 'calc(100vh - 160px)',
-            background: 'rgba(17, 24, 39, 0.98)',
-            color: 'white',
-          }}
-        >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white">我的计划（{planStops.length}）</h3>
-            <button
-              onClick={() => setRightOpen(false)}
-              className="text-gray-400 hover:text-white text-sm"
-            >
-              ▶
-            </button>
-          </div>
-
-          {originalDistance !== null && (
-            <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">总距离</span>
-                <span className="text-white">
-                  {optimizedDistance} km
-                  {savedDistance > 0 && (
-                    <span className="text-green-400 ml-2">↓ {savedDistance} km</span>
-                  )}
-                </span>
-              </div>
-              {savedDistance > 0 && (
-                <div className="flex justify-between text-xs mt-1">
-                  <span className="text-gray-500">优化前</span>
-                  <span className="text-gray-500 line-through">{originalDistance} km</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="overflow-y-auto p-4 flex-1">
-            {planStops.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">
-                还没有添加景点
-                <br />
-                从左侧列表或地图上点击景点加入
-              </p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={planStops.map(s => s.poiId)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {planStops.map((stop, idx) => (
-                      <SortableStop
-                        key={stop.poiId}
-                        stop={stop}
-                        index={idx}
-                        onRemove={removeFromPlan}
-                        highlighted={highlightedIds.has(stop.poiId)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
-
-          {planStops.length > 0 && (
-            <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
-              <button
-                onClick={clearPlan}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-2 text-sm transition text-white"
-              >
-                清空
-              </button>
-              <button
-                onClick={handleOptimize}
-                disabled={optimizing}
-                className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
-                  optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {optimizing ? 'AI 优化中...' : 'AI 优化'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {!rightOpen && (
-          <button
-            onClick={() => setRightOpen(true)}
-            className="absolute right-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
-          >
-            ◀
-          </button>
-        )}
-
-        {toast && (
-          <div
-            className="absolute top-24 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
-            style={{ animation: 'fadeIn 0.3s ease-out' }}
-          >
-            {toast}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

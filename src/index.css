@@ -28,3 +28,12 @@ html, body, #root {
   animation: fadeIn 0.7s ease-out forwards;
   animation-delay: 0.3s;
 }
+@keyframes fadeOut800 {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-fade-out-800 {
+  animation: fadeOut800 0.8s ease-out forwards;
+}

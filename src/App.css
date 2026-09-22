@@ -1,9 +1,8 @@
-function App() {
-  return (
-    <div className="h-screen bg-gray-900 text-white flex items-center justify-center">
-      <h1 className="text-4xl font-bold">Citywalk 前端跑起来了</h1>
-    </div>
-  )
+@keyframes slowZoom {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
 }
 
-export default App
+.animate-slow-zoom {
+  animation: slowZoom 20s ease-in-out infinite alternate;
+}
