@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 import RouteMap from '../components/RouteMap'
 
-export default function RouteDetailPage({ routeId, onLogout, onGoHome, onGoProfile }) {
+export default function RouteDetailPage() {
+  const { id } = useParams()
+  const routeId = Number(id)
+  const navigate = useNavigate()
   const [route, setRoute] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,7 +37,7 @@ export default function RouteDetailPage({ routeId, onLogout, onGoHome, onGoProfi
   if (loading) {
     return (
       <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
-        <Navbar onLogout={onLogout} onGoHome={onGoHome} onGoProfile={onGoProfile} currentPage="route" />
+        <Navbar currentPage="route" />
         <div className="flex-1 flex items-center justify-center text-gray-500">加载中...</div>
       </div>
     )
@@ -42,7 +46,7 @@ export default function RouteDetailPage({ routeId, onLogout, onGoHome, onGoProfi
   if (!route) {
     return (
       <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
-        <Navbar onLogout={onLogout} onGoHome={onGoHome} onGoProfile={onGoProfile} currentPage="route" />
+        <Navbar currentPage="route" />
         <div className="flex-1 flex items-center justify-center text-gray-500">路线不存在</div>
       </div>
     )
@@ -53,7 +57,7 @@ export default function RouteDetailPage({ routeId, onLogout, onGoHome, onGoProfi
 
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
-      <Navbar onLogout={onLogout} onGoHome={onGoHome} onGoProfile={onGoProfile} currentPage="route" />
+      <Navbar currentPage="route" />
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左栏：地图 */}
@@ -65,7 +69,7 @@ export default function RouteDetailPage({ routeId, onLogout, onGoHome, onGoProfi
           />
 
           <button
-            onClick={onGoHome}
+            onClick={() => navigate(-1)}
             className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur px-3 py-1.5 rounded text-sm text-white border border-gray-700 hover:bg-gray-800 z-10"
           >
             ← 返回

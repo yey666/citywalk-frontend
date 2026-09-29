@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import App from './App.jsx'
@@ -32,8 +33,13 @@ axios.interceptors.request.use(config => {
   return config
 })
 
+// 清理旧版 page/mode 状态残留（已改用路由）
+;['page', 'mode', 'selectedCity', 'routeDetailId', 'markedIds'].forEach(k => localStorage.removeItem(k))
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </StrictMode>
 )

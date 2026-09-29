@@ -1,12 +1,17 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 
-export default function LoginPage({ onLogin }) {
+export default function LoginPage() {
+  const navigate = useNavigate()
+  const { login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [isRegister, setIsRegister] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [transition, setTransition] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -22,10 +27,14 @@ export default function LoginPage({ onLogin }) {
       localStorage.setItem('username', res.data.username)
       localStorage.setItem('nickname', res.data.nickname || res.data.username)
 
-      onLogin(res.data)
+      setLoading(false)
+      setTransition(true)
+      setTimeout(() => {
+        login(res.data)
+        navigate('/', { replace: true })
+      }, 800)
     } catch (err) {
       setError(err.response?.data?.message || err.message || '操作失败')
-    } finally {
       setLoading(false)
     }
   }
@@ -93,7 +102,7 @@ export default function LoginPage({ onLogin }) {
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/60 focus:bg-white/10 transition"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400/60 focus:bg-white/10 transition"
                   placeholder="输入用户名"
                   required
                 />
@@ -140,6 +149,21 @@ className="relative w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:fr
      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80" />
       <span className="text-gray-500">佛山 · 成都 · 西安 · 杭州 · 厦门 · 苏州</span>
     </div>
+
+      {/* 登录过渡层 */}
+      {transition && (
+        <div className="absolute inset-0 z-[60] bg-gray-950 flex items-center justify-center animate-fade-out-800">
+          <div className="text-center">
+            <p className="text-white/90 text-2xl tracking-[0.3em]">
+              世界之大
+            </p>
+            <p className="text-white/60 text-2xl tracking-[0.3em] mt-3">
+              为何我们相遇
+            </p>
+            <div className="mt-6 mx-auto w-12 h-px bg-cyan-400/60" />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

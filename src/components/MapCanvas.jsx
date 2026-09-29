@@ -131,7 +131,7 @@ export default function MapCanvas({
       })
     }
 
-    // ========== 第 2 段：多点预览（黄色） ==========
+    // ========== 第 2 段：多点预览（蓝色） ==========
     if (previewPois && previewPois.length > 0) {
       previewPois.forEach((poi, idx) => {
         const isLatest = idx === previewPois.length - 1
@@ -170,7 +170,7 @@ export default function MapCanvas({
       mapRef.current.setCenter([latest.lng, latest.lat])
     }
 
-    // ========== 第 3 段：路线预览（橙色编号 + 连线） ==========
+    // ========== 第 3 段：路线预览（青色编号 + 连线） ==========
     if (previewRoute && previewRoute.nodes && previewRoute.nodes.length > 0) {
       const path = []
 
@@ -183,9 +183,9 @@ export default function MapCanvas({
           <div style="
             width: 28px; height: 28px;
             border-radius: 50%;
-            background: #f97316;
+            background: #06b6d4;
             border: 3px solid white;
-            box-shadow: 0 0 12px rgba(249, 115, 22, 0.8);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.8);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -211,7 +211,7 @@ export default function MapCanvas({
       if (path.length > 1) {
         const polyline = new window.AMap.Polyline({
           path,
-          strokeColor: '#f97316',
+          strokeColor: '#06b6d4',
           strokeWeight: 4,
           strokeStyle: 'solid',
           lineJoin: 'round',

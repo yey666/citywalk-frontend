@@ -1,5 +1,8 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { usePlan } from '../context/PlanContext'
 
 // ============ 抽屉里的小节 ============
 function Section({ icon, title, children }) {
@@ -31,7 +34,7 @@ function getPoiPhoto(poi) {
       if (Array.isArray(arr) && arr.length > 0 && arr[0]) {
         return arr[0]
       }
-    } catch (e) {
+    } catch {
       // 忽略
     }
   }
@@ -41,36 +44,40 @@ function getPoiPhoto(poi) {
 }
 
 // ============ 主组件 ============
-export default function CityDetailPage({
-  city,
-  onBack,
-  onStartPlan,
-  onGoRouteDetail,
-}) {
+export default function CityDetailPage() {
+  const { id } = useParams()
+  const cityId = Number(id)
+  const navigate = useNavigate()
+  const { loadCity, markedIds, toggleMark } = usePlan()
+
   const [pois, setPois] = useState([])
   const [routes, setRoutes] = useState([])
-  const [markedIds, setMarkedIds] = useState(new Set())
-  const [selectedPoi, setSelectedPoi] = useState(null)
   const [cityInfo, setCityInfo] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [selectedPoi, setSelectedPoi] = useState(null)
 
   const [rightTab, setRightTab] = useState('pois')
   const [visibleCount, setVisibleCount] = useState(20)
 
   useEffect(() => {
-    if (!city) return
+    if (!cityId) return
+    loadCity(cityId)
+  }, [cityId, loadCity])
+
+  useEffect(() => {
+    if (!cityId) return
     setLoading(true)
 
     Promise.all([
-      axios.get(`/api/city/${city.id}/overview`).catch(err => {
+      axios.get(`/api/city/${cityId}/overview`).catch(err => {
         console.error('加载城市详情失败：', err)
         return { data: null }
       }),
-      axios.get(`/api/poi/by-city/${city.id}`).catch(err => {
+      axios.get(`/api/poi/by-city/${cityId}`).catch(err => {
         console.error('加载 POI 失败：', err)
         return { data: [] }
       }),
-      axios.get(`/api/city/${city.id}/routes`).catch(err => {
+      axios.get(`/api/city/${cityId}/routes`).catch(err => {
         console.error('加载路线失败：', err)
         return { data: [] }
       }),
@@ -80,26 +87,17 @@ export default function CityDetailPage({
       setRoutes(routeRes.data || [])
       setLoading(false)
     })
-  }, [city])
+  }, [cityId])
 
-  const toggleMark = (poiId) => {
-    setMarkedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(poiId)) next.delete(poiId)
-      else next.add(poiId)
-      return next
-    })
-  }
-
-  if (!city) return null
+  if (!cityId) return null
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-950 text-white">
+    <div className="h-full w-full flex flex-col bg-gray-950 text-white">
 
       {/* 顶部返回 */}
       <div className="h-14 flex items-center px-6 border-b border-white/5 flex-shrink-0">
         <button
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="text-gray-400 hover:text-white text-sm transition"
         >
           ← 返回地球
@@ -121,7 +119,7 @@ export default function CityDetailPage({
 
           <div className="relative h-full flex flex-col justify-end p-12">
             <h1 className="text-6xl font-bold tracking-tight mb-4">
-              {cityInfo?.name || city.name}
+              {cityInfo?.name || ''}
             </h1>
             <p className="text-gray-300 text-lg mb-6">
               {cityInfo?.slogan || ''}
@@ -238,7 +236,7 @@ export default function CityDetailPage({
                     {routes.map(route => (
                       <div
                         key={route.id}
-                        onClick={() => onGoRouteDetail(route.id)}
+                        onClick={() => navigate(`/route/${route.id}`)}
                         className="rounded-xl border border-white/10 bg-white/5 p-4 hover:border-white/20 transition cursor-pointer"
                       >
                         <div className="flex justify-between items-start mb-3">
@@ -283,7 +281,7 @@ export default function CityDetailPage({
           已标记 <span className="text-cyan-400 font-semibold">{markedIds.size}</span> 个地方
         </span>
         <button
-          onClick={() => onStartPlan(Array.from(markedIds))}
+          onClick={() => navigate(`/plan/${cityId}`)}
           disabled={markedIds.size === 0}
           className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
             markedIds.size === 0

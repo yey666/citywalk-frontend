@@ -51,7 +51,7 @@ export default function RouteMap({ nodes, activeIndex, onNodeClick }) {
       if (!node.lng || !node.lat) return
 
       const isActive = idx === activeIndex
-      const bgColor = isActive ? '#3b82f6' : '#f97316'
+      const bgColor = isActive ? '#3b82f6' : '#06b6d4'
       const size = isActive ? 32 : 26
 
       const markerContent = `
