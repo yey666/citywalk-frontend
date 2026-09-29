@@ -91,7 +91,7 @@ export default function WorkbenchPage() {
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
-  const [leftTab, setLeftTab] = useState('pois')
+  const [leftTab, setLeftTab] = useState('marked')
 
   const [toast, setToast] = useState(null)
 
@@ -346,7 +346,7 @@ export default function WorkbenchPage() {
           </button>
         </div>
 
-        {/* 左浮层：已标记的地方 */}
+        {/* 左浮层：已标记 / 景点 / 路线 */}
         <div
           className={`absolute left-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
             leftOpen ? 'translate-x-0' : '-translate-x-[340px]'
@@ -357,35 +357,115 @@ export default function WorkbenchPage() {
             color: 'white',
           }}
         >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white">
-              已标记的地方（{markedPois.length}）
-            </h3>
+          {/* 头部：城市名 + 描述 */}
+          <div className="p-4 border-b border-gray-700 flex-shrink-0">
+            <div className="flex justify-between items-center">
+              <h3 className="font-semibold text-white truncate">{city?.name}</h3>
+              <button
+                onClick={() => setLeftOpen(false)}
+                className="text-gray-400 hover:text-white text-sm flex-shrink-0 ml-2"
+              >
+                ◀
+              </button>
+            </div>
+            {city?.description && (
+              <p className="text-xs text-gray-400 leading-relaxed mt-2 line-clamp-2" title={city.description}>
+                {city.description}
+              </p>
+            )}
+          </div>
+
+          {/* 三个 tab */}
+          <div className="flex border-b border-gray-700 flex-shrink-0">
             <button
-              onClick={() => setLeftOpen(false)}
-              className="text-gray-400 hover:text-white text-sm"
+              onClick={() => setLeftTab('marked')}
+              className={`flex-1 py-2 text-xs font-medium transition relative ${
+                leftTab === 'marked' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
             >
-              ◀
+              已标记（{markedPois.length}）
+              {leftTab === 'marked' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+              )}
+            </button>
+            <button
+              onClick={() => setLeftTab('pois')}
+              className={`flex-1 py-2 text-xs font-medium transition relative ${
+                leftTab === 'pois' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              景点（{pois.length}）
+              {leftTab === 'pois' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+              )}
+            </button>
+            <button
+              onClick={() => setLeftTab('routes')}
+              className={`flex-1 py-2 text-xs font-medium transition relative ${
+                leftTab === 'routes' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              路线（{routes.length}）
+              {leftTab === 'routes' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+              )}
             </button>
           </div>
 
+          {/* 内容区：独立滚动 */}
           <div className="overflow-y-auto p-4 flex-1">
-            {markedPois.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">
-                还没有标记的地方
-                <br />
-                回城市详情页点「想去」标记
-              </p>
-            ) : (
+            {leftTab === 'marked' && (
               <div className="space-y-2">
-                {markedPois.map(poi => {
+                {markedPois.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">
+                    还没有标记的地方
+                    <br />
+                    回城市详情页点「想去」标记
+                  </p>
+                ) : (
+                  markedPois.map(poi => {
+                    const inPlan = planStops.some(s => s.poiId === poi.id)
+                    return (
+                      <div
+                        key={poi.id}
+                        className="p-2 rounded flex justify-between items-center text-sm bg-gray-800 border border-transparent"
+                      >
+                        <span className="truncate flex-1 text-white">{poi.name}</span>
+                        <button
+                          onClick={() => handleAddToPlan(poi)}
+                          disabled={inPlan}
+                          className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                            inPlan
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                        >
+                          {inPlan ? '已加' : '+ 加入'}
+                        </button>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
+
+            {leftTab === 'pois' && (
+              <div className="space-y-2">
+                {pois.map(poi => {
                   const inPlan = planStops.some(s => s.poiId === poi.id)
+                  const isPreviewed = previewPois.some(p => p.id === poi.id)
                   return (
                     <div
                       key={poi.id}
-                      className="p-2 rounded flex justify-between items-center text-sm bg-gray-800 border border-transparent"
+                      className={`p-2 rounded flex justify-between items-center text-sm transition ${
+                        isPreviewed ? 'bg-cyan-900/30 border border-cyan-600' : 'bg-gray-800 border border-transparent'
+                      }`}
                     >
-                      <span className="truncate flex-1 text-white">
+                      <span
+                        onClick={() => previewPoiOnMap(poi)}
+                        className="truncate flex-1 text-white cursor-pointer hover:text-cyan-400"
+                        title="点击在地图上预览"
+                      >
                         {poi.name}
                       </span>
                       <button
@@ -404,113 +484,54 @@ export default function WorkbenchPage() {
                 })}
               </div>
             )}
-          </div>
-        </div>
 
-        <div className="overflow-y-auto p-4 flex-1">
-          <p className="text-sm text-gray-300 mb-4">{city?.description}</p>
-
-          <div className="flex mb-4 bg-gray-800/60 rounded-lg p-1">
-            <button
-              onClick={() => setLeftTab('pois')}
-              className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
-                leftTab === 'pois' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              景点列表（{pois.length}）
-            </button>
-            <button
-              onClick={() => setLeftTab('routes')}
-              className={`flex-1 py-2 rounded-md text-xs font-medium transition ${
-                leftTab === 'routes' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              推荐路线（{routes.length}）
-            </button>
-          </div>
-
-          {leftTab === 'pois' && (
-            <div className="space-y-2">
-              {pois.map(poi => {
-                const inPlan = planStops.some(s => s.poiId === poi.id)
-                const isPreviewed = previewPois.some(p => p.id === poi.id)
-                return (
-                  <div
-                    key={poi.id}
-                    className={`p-2 rounded flex justify-between items-center text-sm transition ${
-                      isPreviewed ? 'bg-cyan-900/30 border border-cyan-600' : 'bg-gray-800 border border-transparent'
-                    }`}
-                  >
-                    <span
-                      onClick={() => previewPoiOnMap(poi)}
-                      className="truncate flex-1 text-white cursor-pointer hover:text-cyan-400"
-                      title="点击在地图上预览"
+            {leftTab === 'routes' && (
+              <div className="space-y-3">
+                {routes.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
+                ) : (
+                  routes.map(route => (
+                    <div
+                      key={route.id}
+                      onClick={() => navigate(`/route/${route.id}`)}
+                      className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-cyan-500 cursor-pointer transition"
                     >
-                      {poi.name}
-                    </span>
-                    <button
-                      onClick={() => handleAddToPlan(poi)}
-                      disabled={inPlan}
-                      className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
-                        inPlan
-                          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                    >
-                      {inPlan ? '已加' : '+ 加入'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                      <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
+                      <div className="flex gap-2 text-xs text-gray-400 mb-2">
+                        <span>{route.theme}</span>
+                        <span>·</span>
+                        <span>{route.duration} 小时</span>
+                        <span>·</span>
+                        <span>{route.difficulty}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
 
-          {leftTab === 'routes' && (
-            <div className="space-y-3">
-              {routes.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
-              ) : (
-                routes.map(route => (
-                  <div
-                    key={route.id}
-                    onClick={() => navigate(`/route/${route.id}`)}
-                    className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-blue-500 cursor-pointer transition"
-                  >
-                    <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
-                    <div className="flex gap-2 text-xs text-gray-400 mb-2">
-                      <span>{route.theme}</span>
-                      <span>·</span>
-                      <span>{route.duration} 小时</span>
-                      <span>·</span>
-                      <span>{route.difficulty}</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAddRouteToPlan(route.id)
+                          }}
+                          className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
+                        >
+                          + 加入
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            previewRouteOnMap(route.id)
+                          }}
+                          className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
+                        >
+                          在地图上标出
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleAddRouteToPlan(route.id)
-                        }}
-                        className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
-                      >
-                        + 加入
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          previewRouteOnMap(route.id)
-                        }}
-                        className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
-                      >
-                        在地图上标出
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {!leftOpen && (
