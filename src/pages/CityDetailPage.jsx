@@ -258,7 +258,7 @@ export default function CityDetailPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            console.log('以此为起点规划', route.id)
+                            navigate(`/plan/${cityId}?from=route&routeId=${route.id}`)
                           }}
                           className="w-full py-2 rounded text-xs bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/20 transition"
                         >

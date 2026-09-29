@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import {
   DndContext,
@@ -87,6 +87,9 @@ export default function WorkbenchPage() {
   const { id } = useParams()
   const cityId = Number(id)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const fromParam = searchParams.get('from')
+  const routeIdParam = searchParams.get('routeId')
 
   const {
     loadCity,
@@ -105,7 +108,13 @@ export default function WorkbenchPage() {
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
-  const [leftTab, setLeftTab] = useState('marked')
+  const [leftTab, setLeftTab] = useState(
+    fromParam === 'route' && routeIdParam ? 'routes' : 'marked'
+  )
+  const [activeRouteId] = useState(
+    fromParam === 'route' && routeIdParam ? Number(routeIdParam) : null
+  )
+  const [activeRoute, setActiveRoute] = useState(null)
   const [poiSearch, setPoiSearch] = useState('')
 
   const [toast, setToast] = useState(null)
@@ -149,6 +158,15 @@ export default function WorkbenchPage() {
     })
   }, [cityId, loadCity])
 
+  useEffect(() => {
+    if (!activeRouteId) return
+    axios.get(`/api/route/${activeRouteId}`)
+      .then(res => setActiveRoute(res.data))
+      .catch(err => {
+        console.error('加载路线节点失败：', err)
+      })
+  }, [activeRouteId])
+
   const markedPois = pois.filter(p => markedIds.has(p.id))
 
   const searchQuery = poiSearch.trim().toLowerCase()
@@ -190,6 +208,19 @@ export default function WorkbenchPage() {
     if (planStops.some(s => s.poiId === poi.id)) return
     addToPlan(poi)
     showToast(`已加入：${poi.name}`)
+  }
+
+  const handleAddNodeToPlan = (node) => {
+    if (planStops.some(s => s.poiId === node.poiId)) return
+    addStops([{
+      poiId: node.poiId,
+      name: node.poiName,
+      lng: node.lng,
+      lat: node.lat,
+      stayDuration: node.stayDuration,
+      tip: node.tip || '',
+    }])
+    showToast(`已加入：${node.poiName}`)
   }
 
   const handleAddRouteToPlan = async (routeId) => {
@@ -532,11 +563,17 @@ export default function WorkbenchPage() {
                 {routes.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
                 ) : (
-                  routes.map(route => (
+                  routes.map(route => {
+                    const isActive = route.id === activeRouteId
+                    return (
                     <div
                       key={route.id}
                       onClick={() => navigate(`/route/${route.id}`)}
-                      className="bg-gray-800 p-3 rounded-lg border border-gray-700 hover:border-cyan-500 cursor-pointer transition"
+                      className={`bg-gray-800 p-3 rounded-lg border transition cursor-pointer ${
+                        isActive
+                          ? 'border-cyan-500 bg-cyan-900/20'
+                          : 'border-gray-700 hover:border-cyan-500'
+                      }`}
                     >
                       <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
                       <div className="flex gap-2 text-xs text-gray-400 mb-2">
@@ -548,16 +585,54 @@ export default function WorkbenchPage() {
                       </div>
                       <p className="text-xs text-gray-500 leading-relaxed mb-3">{route.description}</p>
 
+                      {isActive && activeRoute && (
+                        <div className="mb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                          {activeRoute.nodes.map(node => {
+                            const inPlan = planStops.some(s => s.poiId === node.poiId)
+                            return (
+                              <div
+                                key={node.poiId}
+                                className="flex justify-between items-center bg-gray-900/60 p-2 rounded"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <span className="text-sm text-white truncate block">{node.poiName}</span>
+                                  <span className="text-xs text-gray-500">{node.stayDuration} 分钟</span>
+                                </div>
+                                <button
+                                  onClick={() => handleAddNodeToPlan(node)}
+                                  disabled={inPlan}
+                                  className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                                    inPlan
+                                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  }`}
+                                >
+                                  {inPlan ? '已加' : '+ 加入'}
+                                </button>
+                              </div>
+                            )
+                          })}
+                          <button
+                            onClick={() => handleAddRouteToPlan(activeRouteId)}
+                            className="w-full px-3 py-2 rounded text-sm bg-cyan-600 hover:bg-cyan-700 text-white transition"
+                          >
+                            整条加入
+                          </button>
+                        </div>
+                      )}
+
                       <div className="flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleAddRouteToPlan(route.id)
-                          }}
-                          className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
-                        >
-                          + 加入
-                        </button>
+                        {!isActive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleAddRouteToPlan(route.id)
+                            }}
+                            className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
+                          >
+                            + 加入
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -569,7 +644,8 @@ export default function WorkbenchPage() {
                         </button>
                       </div>
                     </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             )}
