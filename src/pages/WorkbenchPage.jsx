@@ -128,6 +128,17 @@ export default function WorkbenchPage() {
   const [previewPois, setPreviewPois] = useState([])
   const [previewRoute, setPreviewRoute] = useState(null)
 
+  // 查票
+  const [showTicketPrompt, setShowTicketPrompt] = useState(false)
+  const [showTicketModal, setShowTicketModal] = useState(false)
+  const [ticketFrom, setTicketFrom] = useState('')
+  const [ticketTo, setTicketTo] = useState('')
+  const [ticketDate, setTicketDate] = useState('')
+  const [trainResults, setTrainResults] = useState([])
+  const [ticketLoading, setTicketLoading] = useState(false)
+  const [ticketError, setTicketError] = useState(null)
+  const [hasQueried, setHasQueried] = useState(false)
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 5 },
@@ -285,12 +296,61 @@ export default function WorkbenchPage() {
         })),
       })
       showToast('保存成功！已加入「我的计划」')
+      setTimeout(() => setShowTicketPrompt(true), 2000)
     } catch (err) {
       console.error('保存失败：', err)
       showToast('保存失败：' + (err.response?.data?.message || err.message), 3000)
     } finally {
       setSaving(false)
     }
+  }
+
+  const getTomorrowDate = () => {
+    const d = new Date()
+    d.setDate(d.getDate() + 1)
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  const openTicketModal = () => {
+    setShowTicketPrompt(false)
+    setTicketFrom('')
+    setTicketTo(city?.name || '')
+    setTicketDate(getTomorrowDate())
+    setTrainResults([])
+    setTicketError(null)
+    setHasQueried(false)
+    setShowTicketModal(true)
+  }
+
+  const handleTicketQuery = async () => {
+    if (!ticketFrom.trim() || !ticketTo.trim() || !ticketDate) {
+      setTicketError('请填写出发地、目的地和日期')
+      return
+    }
+    setTicketLoading(true)
+    setTicketError(null)
+    setHasQueried(false)
+    try {
+      const res = await axios.get('/api/train/query', {
+        params: { from: ticketFrom.trim(), to: ticketTo.trim(), date: ticketDate },
+      })
+      setTrainResults(res.data?.trains || [])
+    } catch (err) {
+      setTicketError(err.response?.data?.message || err.message || '查询失败')
+      setTrainResults([])
+    } finally {
+      setTicketLoading(false)
+      setHasQueried(true)
+    }
+  }
+
+  const handleSelectTrain = (train) => {
+    localStorage.setItem(`plan_ticket_${cityId}`, JSON.stringify(train))
+    setShowTicketModal(false)
+    showToast(`已绑定车次 ${train.trainCode}`)
   }
 
   const handleDragEnd = (event) => {
@@ -771,6 +831,124 @@ export default function WorkbenchPage() {
             style={{ animation: 'fadeIn 0.3s ease-out' }}
           >
             {toast}
+          </div>
+        )}
+
+        {showTicketPrompt && (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+            onClick={() => setShowTicketPrompt(false)}
+          >
+            <div
+              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-80 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="text-white text-sm mb-5">保存成功！要查票吗？</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowTicketPrompt(false)}
+                  className="flex-1 py-2 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm transition"
+                >
+                  暂不
+                </button>
+                <button
+                  onClick={openTicketModal}
+                  className="flex-1 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-sm transition"
+                >
+                  查票 →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showTicketModal && (
+          <div
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+            onClick={() => setShowTicketModal(false)}
+          >
+            <div
+              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-[480px] max-h-[80vh] flex flex-col shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4 flex-shrink-0">
+                <h3 className="text-white font-semibold">查票</h3>
+                <button
+                  onClick={() => setShowTicketModal(false)}
+                  className="text-gray-400 hover:text-white text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 mb-4 flex-shrink-0">
+                <input
+                  value={ticketFrom}
+                  onChange={e => setTicketFrom(e.target.value)}
+                  placeholder="出发地"
+                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+                <input
+                  value={ticketTo}
+                  onChange={e => setTicketTo(e.target.value)}
+                  placeholder="目的地"
+                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+                <input
+                  type="date"
+                  value={ticketDate}
+                  onChange={e => setTicketDate(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                />
+                <button
+                  onClick={handleTicketQuery}
+                  disabled={ticketLoading}
+                  className={`w-full py-2 rounded text-sm font-semibold text-white transition ${
+                    ticketLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'
+                  }`}
+                >
+                  {ticketLoading ? '查询中...' : '查询'}
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 space-y-2">
+                {ticketLoading ? (
+                  <p className="text-sm text-gray-400 text-center py-4">查询中...</p>
+                ) : ticketError ? (
+                  <p className="text-sm text-red-400 text-center py-4">{ticketError}</p>
+                ) : hasQueried && trainResults.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-4">暂无车次</p>
+                ) : (
+                  trainResults.map((train, idx) => (
+                    <div
+                      key={train.trainNo || train.trainCode || idx}
+                      className="bg-gray-800 border border-gray-700 rounded p-3 flex items-center justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-white text-sm font-medium">{train.trainCode}</div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {train.startTime} → {train.arriveTime}
+                        </div>
+                      </div>
+                      <div className="ml-3 text-right shrink-0">
+                        <div className="text-xs text-gray-400">
+                          二等座 <span className="text-cyan-400">{train.prices?.['二等座'] || '—'}</span>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          一等座 <span className="text-cyan-400">{train.prices?.['一等座'] || '—'}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleSelectTrain(train)}
+                        className="ml-3 px-3 py-1.5 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition shrink-0"
+                      >
+                        选这个
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
