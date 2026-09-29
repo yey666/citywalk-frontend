@@ -19,6 +19,20 @@ import Navbar from '../components/Navbar'
 import MapCanvas from '../components/MapCanvas'
 import { usePlan } from '../context/PlanContext'
 
+// ==================== 搜索意图词典 ====================
+const KEYWORD_MAP = {
+  '吃饭': ['餐', '美食', '小吃', '饭店', 'food'],
+  '饮食': ['餐', '美食', '小吃', '饭店', 'food'],
+  '美食': ['餐', '美食', '小吃', '饭店', 'food'],
+  '拍照': ['机位', '出片', 'photo', '摄影'],
+  '机位': ['机位', '出片', 'photo', '摄影'],
+  '文化': ['历史', '文化', '博物馆', '古建'],
+  '历史': ['历史', '文化', '博物馆', '古建'],
+  '公园': ['公园', '广场', '绿地'],
+  '购物': ['购物', '商场', '广场'],
+  '夜景': ['夜', '夜景', '灯光'],
+}
+
 // ==================== 可拖拽项组件 ====================
 function SortableStop({ stop, index, onRemove, highlighted }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -92,6 +106,7 @@ export default function WorkbenchPage() {
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [leftTab, setLeftTab] = useState('marked')
+  const [poiSearch, setPoiSearch] = useState('')
 
   const [toast, setToast] = useState(null)
 
@@ -135,6 +150,17 @@ export default function WorkbenchPage() {
   }, [cityId, loadCity])
 
   const markedPois = pois.filter(p => markedIds.has(p.id))
+
+  const searchQuery = poiSearch.trim().toLowerCase()
+  const searchTerms = KEYWORD_MAP[searchQuery] || (searchQuery ? [searchQuery] : [])
+
+  const filteredPois = pois.filter(p => {
+    const haystack = [p.name, p.category, p.description]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return searchTerms.some(term => haystack.includes(term.toLowerCase()))
+  })
 
   const showToast = (msg, ms = 2000) => {
     setToast(msg)
@@ -394,7 +420,7 @@ export default function WorkbenchPage() {
                 leftTab === 'pois' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              景点（{pois.length}）
+              + 添加
               {leftTab === 'pois' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
               )}
@@ -451,37 +477,53 @@ export default function WorkbenchPage() {
 
             {leftTab === 'pois' && (
               <div className="space-y-2">
-                {pois.map(poi => {
-                  const inPlan = planStops.some(s => s.poiId === poi.id)
-                  const isPreviewed = previewPois.some(p => p.id === poi.id)
-                  return (
-                    <div
-                      key={poi.id}
-                      className={`p-2 rounded flex justify-between items-center text-sm transition ${
-                        isPreviewed ? 'bg-cyan-900/30 border border-cyan-600' : 'bg-gray-800 border border-transparent'
-                      }`}
-                    >
-                      <span
-                        onClick={() => previewPoiOnMap(poi)}
-                        className="truncate flex-1 text-white cursor-pointer hover:text-cyan-400"
-                        title="点击在地图上预览"
-                      >
-                        {poi.name}
-                      </span>
-                      <button
-                        onClick={() => handleAddToPlan(poi)}
-                        disabled={inPlan}
-                        className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
-                          inPlan
-                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                <input
+                  value={poiSearch}
+                  onChange={e => setPoiSearch(e.target.value)}
+                  placeholder="搜索景点..."
+                  className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                />
+                {!poiSearch.trim() ? (
+                  <p className="text-sm text-gray-400 text-center py-8">
+                    输入关键词搜索景点，点「加入」加到计划
+                    <br />
+                    <span className="text-xs text-gray-500">试试搜：吃饭 · 拍照 · 文化 · 公园</span>
+                  </p>
+                ) : filteredPois.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">没有匹配的景点</p>
+                ) : (
+                  filteredPois.map(poi => {
+                    const inPlan = planStops.some(s => s.poiId === poi.id)
+                    const isPreviewed = previewPois.some(p => p.id === poi.id)
+                    return (
+                      <div
+                        key={poi.id}
+                        className={`p-2 rounded flex justify-between items-center text-sm transition ${
+                          isPreviewed ? 'bg-cyan-900/30 border border-cyan-600' : 'bg-gray-800 border border-transparent'
                         }`}
                       >
-                        {inPlan ? '已加' : '+ 加入'}
-                      </button>
-                    </div>
-                  )
-                })}
+                        <span
+                          onClick={() => previewPoiOnMap(poi)}
+                          className="truncate flex-1 text-white cursor-pointer hover:text-cyan-400"
+                          title="点击在地图上预览"
+                        >
+                          {poi.name}
+                        </span>
+                        <button
+                          onClick={() => handleAddToPlan(poi)}
+                          disabled={inPlan}
+                          className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                            inPlan
+                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                        >
+                          {inPlan ? '已加' : '+ 加入'}
+                        </button>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             )}
 
