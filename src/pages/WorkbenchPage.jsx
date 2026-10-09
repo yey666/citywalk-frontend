@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import {
@@ -101,6 +101,25 @@ function renderTicketPrice(prices) {
   return `${seat} ${price}`
 }
 
+// 一条 segment → 摘要文字
+function summarizeSegment(seg) {
+  const distance = Number(seg.distance) || 0
+  const bus = seg.steps?.find(s => s.type === 'bus')
+  if (bus) {
+    const label = bus.transportType === 'metro' ? '地铁' : '公交'
+    const withStops = bus.stopCount ? `${label} ${bus.stopCount} 站` : label
+    return `${withStops} · 约 ${Math.max(1, Math.round(distance / 5 / 60))} 分钟`
+  }
+  return `步行 ${Math.round(distance)} 米 · 约 ${Math.max(1, Math.round(distance / 1.2 / 60))} 分钟`
+}
+
+// 相邻两个节点 → 高德导航 URL
+function buildNavUrl(from, to) {
+  const f = `${from.lng},${from.lat},${from.poiName || ''}`
+  const t = `${to.lng},${to.lat},${to.poiName || ''}`
+  return `https://uri.amap.com/navigation?from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}&mode=transit`
+}
+
 // ==================== 主组件 ====================
 export default function WorkbenchPage() {
   const { id } = useParams()
@@ -139,6 +158,7 @@ export default function WorkbenchPage() {
     fromParam === 'route' && routeIdParam ? Number(routeIdParam) : null
   )
   const [activeRoute, setActiveRoute] = useState(null)
+  const [activeTransit, setActiveTransit] = useState(null)
   const [poiSearch, setPoiSearch] = useState('')
 
   const [toast, setToast] = useState(null)
@@ -197,6 +217,11 @@ export default function WorkbenchPage() {
       .then(res => setActiveRoute(res.data))
       .catch(err => {
         console.error('加载路线节点失败：', err)
+      })
+    axios.get(`/api/route/${activeRouteId}/transit`)
+      .then(res => setActiveTransit(res.data))
+      .catch(err => {
+        console.error('加载交通方案失败：', err)
       })
   }, [activeRouteId])
 
@@ -509,6 +534,11 @@ export default function WorkbenchPage() {
 
   const showPlan = activeTab === 'plan' || (activeTab === 'ticket' && planExpanded)
 
+  const activeTransitByPair = new Map()
+  if (activeTransit?.segments) {
+    activeTransit.segments.forEach(s => activeTransitByPair.set(`${s.fromPoiName}|${s.toPoiName}`, s))
+  }
+
   return (
     <div className="h-full w-full flex flex-col bg-gray-900">
       <Navbar currentPage="plan" />
@@ -732,29 +762,41 @@ export default function WorkbenchPage() {
 
                       {isActive && activeRoute && (
                         <div className="mb-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-                          {activeRoute.nodes.map(node => {
+                          {activeRoute.nodes.map((node, idx) => {
                             const inPlan = planStops.some(s => s.poiId === node.poiId)
+                            const nextNode = activeRoute.nodes[idx + 1]
+                            const seg = nextNode ? activeTransitByPair.get(`${node.poiName}|${nextNode.poiName}`) : null
                             return (
-                              <div
-                                key={node.poiId}
-                                className="flex justify-between items-center bg-gray-900/60 p-2 rounded"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <span className="text-sm text-white truncate block">{node.poiName}</span>
-                                  <span className="text-xs text-gray-500">{node.stayDuration} 分钟</span>
+                              <Fragment key={node.poiId}>
+                                <div className="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-sm text-white truncate block">{node.poiName}</span>
+                                    <span className="text-xs text-gray-500">{node.stayDuration} 分钟</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleAddNodeToPlan(node)}
+                                    disabled={inPlan}
+                                    className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                                      inPlan
+                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                                  >
+                                    {inPlan ? '已加' : '+ 加入'}
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => handleAddNodeToPlan(node)}
-                                  disabled={inPlan}
-                                  className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
-                                    inPlan
-                                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                  }`}
-                                >
-                                  {inPlan ? '已加' : '+ 加入'}
-                                </button>
-                              </div>
+                                {seg && (
+                                  <div className="flex items-center justify-between bg-gray-900/40 px-2 py-1 rounded">
+                                    <span className="text-xs text-cyan-400">↓ {summarizeSegment(seg)}</span>
+                                    <button
+                                      onClick={() => window.open(buildNavUrl(node, nextNode), '_blank', 'noopener,noreferrer')}
+                                      className="text-xs px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:text-white hover:border-cyan-500 transition"
+                                    >
+                                      导航
+                                    </button>
+                                  </div>
+                                )}
+                              </Fragment>
                             )
                           })}
                           <button
