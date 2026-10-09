@@ -92,6 +92,15 @@ function getTomorrowDate() {
   return `${y}-${m}-${day}`
 }
 
+// 价格只展示二等座；没有二等座则取第一个座位类型
+function renderTicketPrice(prices) {
+  if (!prices || typeof prices !== 'object') return '—'
+  const entries = Object.entries(prices)
+  if (entries.length === 0) return '—'
+  const [seat, price] = entries.find(([s]) => s === '二等座') || entries[0]
+  return `${seat} ${price}`
+}
+
 // ==================== 主组件 ====================
 export default function WorkbenchPage() {
   const { id } = useParams()
@@ -190,6 +199,16 @@ export default function WorkbenchPage() {
         console.error('加载路线节点失败：', err)
       })
   }, [activeRouteId])
+
+  // 绑定的车次直接从 localStorage 派生：写 localStorage 后 showToast 会触发重渲染，cityId 变化也会重读
+  const boundTicket = (() => {
+    try {
+      const raw = localStorage.getItem(`plan_ticket_${cityId}`)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })()
 
   const markedPois = pois.filter(p => markedIds.has(p.id))
 
@@ -367,8 +386,19 @@ export default function WorkbenchPage() {
   }
 
   const handleSelectTrain = (train) => {
-    localStorage.setItem(`plan_ticket_${cityId}`, JSON.stringify(train))
+    const bound = { ...train, date: ticketDate }
+    localStorage.setItem(`plan_ticket_${cityId}`, JSON.stringify(bound))
     showToast(`已绑定车次 ${train.trainCode}`)
+  }
+
+  const handleBuyTicket = () => {
+    if (!boundTicket) return
+    const code = boundTicket.trainCode || ''
+    if (code && navigator.clipboard) {
+      navigator.clipboard.writeText(code).catch(() => {})
+    }
+    window.open('https://www.12306.cn', '_blank', 'noopener,noreferrer')
+    showToast(code ? `已复制车次 ${code}，前往 12306 购买` : '前往 12306 购买')
   }
 
   const handleDragEnd = (event) => {
@@ -855,6 +885,47 @@ export default function WorkbenchPage() {
                     </button>
                   </div>
                 )}
+
+                {/* 绑定车次卡片 */}
+                <div className="p-3 border-t border-gray-700 flex-shrink-0">
+                  {boundTicket ? (
+                    <div className="rounded border border-cyan-600 bg-cyan-900/20 p-3">
+                      <div className="text-sm text-cyan-400 mb-1">
+                        🚄 {boundTicket.date || '—'}
+                      </div>
+                      <div className="text-white text-sm font-medium">
+                        {boundTicket.trainCode}
+                        <span className="text-gray-400 text-xs ml-2">
+                          {boundTicket.startTime} → {boundTicket.arriveTime}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {renderTicketPrice(boundTicket.prices)}
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => selectTab('ticket')}
+                          className="flex-1 py-1.5 rounded text-xs border border-cyan-600 text-cyan-400 hover:bg-cyan-900/40 transition"
+                        >
+                          换车次
+                        </button>
+                        <button
+                          onClick={handleBuyTicket}
+                          className="flex-1 py-1.5 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition"
+                        >
+                          去 12306 买
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => selectTab('ticket')}
+                      className="w-full text-center text-xs text-gray-500 hover:text-cyan-400 transition"
+                    >
+                      还没绑定车次，去查票 →
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
