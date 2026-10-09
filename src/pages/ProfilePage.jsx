@@ -169,7 +169,11 @@ export default function ProfilePage() {
                               {plan.duration && <span>{plan.duration} 小时</span>}
                               {plan.theme && <span>· {plan.theme}</span>}
                               {plan.createdAt && (
-                                <span>· {plan.createdAt.split('T')[0]}</span>
+                                <span>
+                                  · {plan.updatedAt && plan.createdAt !== plan.updatedAt
+                                    ? `更新于 ${plan.updatedAt.split('T')[0]}`
+                                    : plan.createdAt.split('T')[0]}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -210,6 +214,20 @@ export default function ProfilePage() {
                                 </div>
                               </div>
                             ))}
+                            {expandedDetail.tickets?.length > 0 && (
+                              <div className="mt-4 pt-4 border-t border-gray-700">
+                                <p className="text-xs text-gray-400 mb-2">🚄 已绑定车次</p>
+                                {expandedDetail.tickets.map((t, idx) => (
+                                  <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
+                                    <span className="text-cyan-400">{t.travelDate || '—'}</span>
+                                    <span className="text-white font-medium">{t.trainCode}</span>
+                                    <span className="text-gray-400 text-xs">
+                                      {t.startTime} → {t.arriveTime}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

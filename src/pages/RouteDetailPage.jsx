@@ -188,6 +188,28 @@ export default function RouteDetailPage() {
               )
             })}
 
+            {route.tickets?.length > 0 && (
+              <div className="p-6 border-t border-gray-800">
+                <h3 className="text-sm font-semibold text-white mb-3">🚄 已绑定车次</h3>
+                <div className="space-y-2">
+                  {route.tickets.map((t, idx) => (
+                    <div key={idx} className="flex flex-wrap items-center gap-3 text-sm bg-gray-800/50 rounded p-3">
+                      <span className="text-cyan-400">{t.travelDate || '—'}</span>
+                      <span className="text-white font-medium">{t.trainCode}</span>
+                      <span className="text-gray-400 text-xs">
+                        {t.startTime} → {t.arriveTime}
+                      </span>
+                      {t.fromStation && t.toStation && (
+                        <span className="text-gray-500 text-xs">
+                          {t.fromStation} → {t.toStation}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="p-6 text-center text-xs text-gray-600">
               数据仅供参考 · 出发前请确认开放时间
             </div>

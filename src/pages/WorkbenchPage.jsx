@@ -200,15 +200,27 @@ export default function WorkbenchPage() {
       })
   }, [activeRouteId])
 
-  // 绑定的车次直接从 localStorage 派生：写 localStorage 后 showToast 会触发重渲染，cityId 变化也会重读
-  const boundTicket = (() => {
+  // 绑定的车次列表（草稿，localStorage 持久化）；旧单条 key 做一次性迁移
+  const [tickets, setTickets] = useState(() => {
     try {
-      const raw = localStorage.getItem(`plan_ticket_${cityId}`)
-      return raw ? JSON.parse(raw) : null
-    } catch {
-      return null
-    }
-  })()
+      const raw = localStorage.getItem(`planTickets:${cityId}`)
+      if (raw) return JSON.parse(raw)
+    } catch { /* 忽略解析失败，回退迁移/空数组 */ }
+    try {
+      const old = localStorage.getItem(`plan_ticket_${cityId}`)
+      if (old) {
+        localStorage.removeItem(`plan_ticket_${cityId}`)
+        return [JSON.parse(old)]
+      }
+    } catch { /* 忽略 */ }
+    return []
+  })
+  const [editingTicketIndex, setEditingTicketIndex] = useState(null)
+
+  const persistTickets = (next) => {
+    setTickets(next)
+    localStorage.setItem(`planTickets:${cityId}`, JSON.stringify(next))
+  }
 
   const markedPois = pois.filter(p => markedIds.has(p.id))
 
@@ -330,19 +342,33 @@ export default function WorkbenchPage() {
     setSaving(true)
     try {
       const totalMinutes = planStops.reduce((sum, s) => sum + s.stayDuration, 0)
-      await axios.post('/api/route/save-draft', {
+      const savedRouteId = localStorage.getItem(`planRouteId:${cityId}`)
+      const res = await axios.post('/api/route/save-draft', {
         cityId,
         title: `${city?.name || ''} · ${planStops.length} 个景点的计划`,
         theme: '混合',
         duration: Math.ceil(totalMinutes / 60),
         difficulty: '轻松',
+        routeId: savedRouteId ? Number(savedRouteId) : null,
         nodes: planStops.map((stop, idx) => ({
           poiId: stop.poiId,
           sortOrder: idx + 1,
           stayDuration: stop.stayDuration,
           tip: stop.tip,
         })),
+        tickets: tickets.map(t => ({
+          trainCode: t.trainCode,
+          fromStation: t.fromStation,
+          toStation: t.toStation,
+          startTime: t.startTime,
+          arriveTime: t.arriveTime,
+          travelDate: t.date,
+          prices: t.prices || {},
+        })),
       })
+      if (res.data?.routeId) {
+        localStorage.setItem(`planRouteId:${cityId}`, res.data.routeId)
+      }
       showToast('保存成功！已加入「我的计划」', 1500)
       resetTicketForm()
       selectTab('ticket')
@@ -387,18 +413,27 @@ export default function WorkbenchPage() {
 
   const handleSelectTrain = (train) => {
     const bound = { ...train, date: ticketDate }
-    localStorage.setItem(`plan_ticket_${cityId}`, JSON.stringify(bound))
-    showToast(`已绑定车次 ${train.trainCode}`)
+    const replacing = editingTicketIndex != null
+    const next = replacing
+      ? tickets.map((t, i) => (i === editingTicketIndex ? bound : t))
+      : [...tickets, bound]
+    persistTickets(next)
+    setEditingTicketIndex(null)
+    showToast(`${replacing ? '已替换' : '已记入'}车次 ${train.trainCode}`)
   }
 
-  const handleBuyTicket = () => {
-    if (!boundTicket) return
-    const code = boundTicket.trainCode || ''
-    if (code && navigator.clipboard) {
-      navigator.clipboard.writeText(code).catch(() => {})
-    }
-    window.open('https://www.12306.cn', '_blank', 'noopener,noreferrer')
-    showToast(code ? `已复制车次 ${code}，前往 12306 购买` : '前往 12306 购买')
+  const handleReplaceTicket = (idx) => {
+    setEditingTicketIndex(idx)
+    selectTab('ticket')
+  }
+
+  const handleRemoveTicket = (idx) => {
+    persistTickets(tickets.filter((_, i) => i !== idx))
+  }
+
+  const handleAddTicket = () => {
+    setEditingTicketIndex(null)
+    selectTab('ticket')
   }
 
   const handleDragEnd = (event) => {
@@ -886,45 +921,49 @@ export default function WorkbenchPage() {
                   </div>
                 )}
 
-                {/* 绑定车次卡片 */}
-                <div className="p-3 border-t border-gray-700 flex-shrink-0">
-                  {boundTicket ? (
-                    <div className="rounded border border-cyan-600 bg-cyan-900/20 p-3">
-                      <div className="text-sm text-cyan-400 mb-1">
-                        🚄 {boundTicket.date || '—'}
-                      </div>
-                      <div className="text-white text-sm font-medium">
-                        {boundTicket.trainCode}
-                        <span className="text-gray-400 text-xs ml-2">
-                          {boundTicket.startTime} → {boundTicket.arriveTime}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        {renderTicketPrice(boundTicket.prices)}
-                      </div>
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => selectTab('ticket')}
-                          className="flex-1 py-1.5 rounded text-xs border border-cyan-600 text-cyan-400 hover:bg-cyan-900/40 transition"
-                        >
-                          换车次
-                        </button>
-                        <button
-                          onClick={handleBuyTicket}
-                          className="flex-1 py-1.5 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition"
-                        >
-                          去 12306 买
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                {/* 绑定车次列表 */}
+                <div className="p-3 border-t border-gray-700 flex-shrink-0 space-y-2">
+                  {tickets.length === 0 ? (
                     <button
-                      onClick={() => selectTab('ticket')}
+                      onClick={handleAddTicket}
                       className="w-full text-center text-xs text-gray-500 hover:text-cyan-400 transition"
                     >
                       还没绑定车次，去查票 →
                     </button>
+                  ) : (
+                    tickets.map((t, idx) => (
+                      <div key={idx} className="rounded border border-cyan-600 bg-cyan-900/20 p-3">
+                        <div className="text-sm text-cyan-400 mb-1">🚄 {t.date || '—'}</div>
+                        <div className="text-white text-sm font-medium">
+                          {t.trainCode}
+                          <span className="text-gray-400 text-xs ml-2">
+                            {t.startTime} → {t.arriveTime}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">{renderTicketPrice(t.prices)}</div>
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={() => handleReplaceTicket(idx)}
+                            className="flex-1 py-1.5 rounded text-xs border border-cyan-600 text-cyan-400 hover:bg-cyan-900/40 transition"
+                          >
+                            换
+                          </button>
+                          <button
+                            onClick={() => handleRemoveTicket(idx)}
+                            className="flex-1 py-1.5 rounded text-xs bg-gray-700 hover:bg-red-600 text-white transition"
+                          >
+                            删
+                          </button>
+                        </div>
+                      </div>
+                    ))
                   )}
+                  <button
+                    onClick={handleAddTicket}
+                    className="w-full py-1.5 rounded text-xs border border-dashed border-cyan-600 text-cyan-400 hover:bg-cyan-900/20 transition"
+                  >
+                    + 添加车次
+                  </button>
                 </div>
               </div>
             )}
@@ -946,6 +985,11 @@ export default function WorkbenchPage() {
                 className="w-96 flex flex-col"
                 style={{ maxHeight: 'calc(100vh - 200px)' }}
               >
+                {editingTicketIndex != null && (
+                  <div className="px-4 pt-3 text-xs text-cyan-400">
+                    正在替换第 {editingTicketIndex + 1} 条车次，选中后点「记入计划」确认
+                  </div>
+                )}
                 <div className="p-4 space-y-3 border-b border-gray-700 flex-shrink-0">
                   <input
                     value={ticketFrom}
