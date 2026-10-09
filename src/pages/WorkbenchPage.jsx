@@ -82,6 +82,16 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
   )
 }
 
+// 计算“明天”的本地日期（YYYY-MM-DD），避开 toISOString 按 UTC 导致的时区偏差
+function getTomorrowDate() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 // ==================== 主组件 ====================
 export default function WorkbenchPage() {
   const { id } = useParams()
@@ -107,7 +117,12 @@ export default function WorkbenchPage() {
   const [routes, setRoutes] = useState([])
 
   const [leftOpen, setLeftOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(true)
+  const [activeTab, setActiveTab] = useState(
+    () => (localStorage.getItem('plan_tab') === 'ticket' ? 'ticket' : 'plan')
+  )
+  const [planExpanded, setPlanExpanded] = useState(
+    () => localStorage.getItem('plan_expanded') === '1'
+  )
   const [leftTab, setLeftTab] = useState(
     fromParam === 'route' && routeIdParam ? 'routes' : 'marked'
   )
@@ -129,11 +144,9 @@ export default function WorkbenchPage() {
   const [previewRoute, setPreviewRoute] = useState(null)
 
   // 查票
-  const [showTicketPrompt, setShowTicketPrompt] = useState(false)
-  const [showTicketModal, setShowTicketModal] = useState(false)
   const [ticketFrom, setTicketFrom] = useState('')
   const [ticketTo, setTicketTo] = useState('')
-  const [ticketDate, setTicketDate] = useState('')
+  const [ticketDate, setTicketDate] = useState(getTomorrowDate)
   const [trainResults, setTrainResults] = useState([])
   const [ticketLoading, setTicketLoading] = useState(false)
   const [ticketError, setTicketError] = useState(null)
@@ -194,6 +207,22 @@ export default function WorkbenchPage() {
   const showToast = (msg, ms = 2000) => {
     setToast(msg)
     setTimeout(() => setToast(null), ms)
+  }
+
+  const selectTab = (tab) => {
+    localStorage.setItem('plan_tab', tab)
+    if (tab === 'plan' && planExpanded) {
+      setPlanExpanded(false)
+      localStorage.setItem('plan_expanded', '0')
+    }
+    setActiveTab(tab)
+  }
+
+  const togglePlanExpanded = () => {
+    setPlanExpanded(prev => {
+      localStorage.setItem('plan_expanded', prev ? '0' : '1')
+      return !prev
+    })
   }
 
   const previewPoiOnMap = (poi) => {
@@ -295,8 +324,9 @@ export default function WorkbenchPage() {
           tip: stop.tip,
         })),
       })
-      showToast('保存成功！已加入「我的计划」')
-      setTimeout(() => setShowTicketPrompt(true), 2000)
+      showToast('保存成功！已加入「我的计划」', 1500)
+      resetTicketForm()
+      selectTab('ticket')
     } catch (err) {
       console.error('保存失败：', err)
       showToast('保存失败：' + (err.response?.data?.message || err.message), 3000)
@@ -305,24 +335,13 @@ export default function WorkbenchPage() {
     }
   }
 
-  const getTomorrowDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-
-  const openTicketModal = () => {
-    setShowTicketPrompt(false)
+  const resetTicketForm = () => {
     setTicketFrom('')
     setTicketTo(city?.name || '')
     setTicketDate(getTomorrowDate())
     setTrainResults([])
     setTicketError(null)
     setHasQueried(false)
-    setShowTicketModal(true)
   }
 
   const handleTicketQuery = async () => {
@@ -349,7 +368,6 @@ export default function WorkbenchPage() {
 
   const handleSelectTrain = (train) => {
     localStorage.setItem(`plan_ticket_${cityId}`, JSON.stringify(train))
-    setShowTicketModal(false)
     showToast(`已绑定车次 ${train.trainCode}`)
   }
 
@@ -423,6 +441,8 @@ export default function WorkbenchPage() {
   }
 
   if (!cityId) return null
+
+  const showPlan = activeTab === 'plan' || (activeTab === 'ticket' && planExpanded)
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-900">
@@ -721,109 +741,220 @@ export default function WorkbenchPage() {
           </button>
         )}
 
-        {/* 右浮层 */}
+        {/* 右侧浮层：tab 切换 + 可选展开 */}
         <div
-          className={`absolute right-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
-            rightOpen ? 'translate-x-0' : 'translate-x-[340px]'
-          }`}
+          className="absolute right-4 top-20 z-40 rounded-xl border border-gray-600 shadow-2xl overflow-hidden flex flex-col"
           style={{
-            maxHeight: 'calc(100vh - 160px)',
             background: 'rgba(17, 24, 39, 0.98)',
             color: 'white',
           }}
         >
-          <div className="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-            <h3 className="font-semibold text-white">我的计划（{planStops.length}）</h3>
+          {/* tab 栏 */}
+          <div className="w-full flex border-b border-gray-700 flex-shrink-0">
             <button
-              onClick={() => setRightOpen(false)}
-              className="text-gray-400 hover:text-white text-sm"
+              onClick={() => selectTab('plan')}
+              className={`flex-1 py-2 text-xs font-medium transition relative ${
+                activeTab === 'plan' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
             >
-              ▶
+              我的计划（{planStops.length}）
+              {activeTab === 'plan' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+              )}
+            </button>
+            <button
+              onClick={() => selectTab('ticket')}
+              className={`flex-1 py-2 text-xs font-medium transition relative ${
+                activeTab === 'ticket' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              查票
+              {activeTab === 'ticket' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
+              )}
             </button>
           </div>
 
-          {originalDistance !== null && (
-            <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">总距离</span>
-                <span className="text-white">
-                  {optimizedDistance} km
-                  {savedDistance > 0 && (
-                    <span className="text-cyan-400 ml-2">↓ {savedDistance} km</span>
-                  )}
-                </span>
-              </div>
-              {savedDistance > 0 && (
-                <div className="flex justify-between text-xs mt-1">
-                  <span className="text-gray-500">优化前</span>
-                  <span className="text-gray-500 line-through">{originalDistance} km</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="overflow-y-auto p-4 flex-1">
-            {planStops.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">
-                还没有添加景点
-                <br />
-                从左侧列表或地图上点击景点加入
-              </p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+          {/* 内容行 */}
+          <div className="flex items-start gap-1">
+            {/* 我的计划面板 */}
+            {showPlan && (
+              <div
+                className="w-80 flex flex-col"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
               >
-                <SortableContext
-                  items={planStops.map(s => s.poiId)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {planStops.map((stop, idx) => (
-                      <SortableStop
-                        key={stop.poiId}
-                        stop={stop}
-                        index={idx}
-                        onRemove={removeFromPlan}
-                        highlighted={highlightedIds.has(stop.poiId)}
-                      />
-                    ))}
+                {originalDistance !== null && (
+                  <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-400">总距离</span>
+                      <span className="text-white">
+                        {optimizedDistance} km
+                        {savedDistance > 0 && (
+                          <span className="text-cyan-400 ml-2">↓ {savedDistance} km</span>
+                        )}
+                      </span>
+                    </div>
+                    {savedDistance > 0 && (
+                      <div className="flex justify-between text-xs mt-1">
+                        <span className="text-gray-500">优化前</span>
+                        <span className="text-gray-500 line-through">{originalDistance} km</span>
+                      </div>
+                    )}
                   </div>
-                </SortableContext>
-              </DndContext>
+                )}
+
+                <div className="overflow-y-auto p-4 flex-1">
+                  {planStops.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-8">
+                      还没有添加景点
+                      <br />
+                      从左侧列表或地图上点击景点加入
+                    </p>
+                  ) : (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={planStops.map(s => s.poiId)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {planStops.map((stop, idx) => (
+                            <SortableStop
+                              key={stop.poiId}
+                              stop={stop}
+                              index={idx}
+                              onRemove={removeFromPlan}
+                              highlighted={highlightedIds.has(stop.poiId)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  )}
+                </div>
+
+                {planStops.length > 0 && (
+                  <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
+                    <button
+                      onClick={handleClearPlan}
+                      className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-2 text-sm transition text-white"
+                    >
+                      清空
+                    </button>
+                    <button
+                      onClick={handleOptimize}
+                      disabled={optimizing}
+                      className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
+                        optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                      }`}
+                    >
+                      {optimizing ? 'AI 优化中...' : 'AI 优化'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 展开/收起箭头（仅查票 tab） */}
+            {activeTab === 'ticket' && (
+              <button
+                onClick={togglePlanExpanded}
+                title={planExpanded ? '收起我的计划' : '展开我的计划'}
+                className="self-center bg-gray-900/95 backdrop-blur px-1.5 py-2 rounded-md shadow-lg border border-gray-700 text-white hover:text-cyan-400 text-sm shrink-0"
+              >
+                {planExpanded ? '▶' : '◀'}
+              </button>
+            )}
+
+            {/* 查票面板 */}
+            {activeTab === 'ticket' && (
+              <div
+                className="w-96 flex flex-col"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
+              >
+                <div className="p-4 space-y-3 border-b border-gray-700 flex-shrink-0">
+                  <input
+                    value={ticketFrom}
+                    onChange={e => setTicketFrom(e.target.value)}
+                    placeholder="出发地"
+                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                  />
+                  <input
+                    value={ticketTo}
+                    onChange={e => setTicketTo(e.target.value)}
+                    placeholder="目的地"
+                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                  />
+                  <input
+                    type="date"
+                    value={ticketDate}
+                    onChange={e => setTicketDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                  />
+                  <button
+                    onClick={handleTicketQuery}
+                    disabled={ticketLoading}
+                    className={`w-full py-2 rounded text-sm font-semibold text-white transition ${
+                      ticketLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'
+                    }`}
+                  >
+                    {ticketLoading ? '查询中...' : '查询'}
+                  </button>
+                </div>
+
+                <div className="overflow-y-auto p-4 flex-1 space-y-2">
+                  {ticketLoading ? (
+                    <p className="text-sm text-gray-400 text-center py-4">查询中...</p>
+                  ) : ticketError ? (
+                    <p className="text-sm text-red-400 text-center py-4">{ticketError}</p>
+                  ) : hasQueried && trainResults.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-4">暂无车次</p>
+                  ) : (
+                    trainResults.map((train, idx) => (
+                      <div
+                        key={`${train.trainNo}-${idx}`}
+                        className="bg-gray-800 border border-gray-700 rounded p-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="min-w-0">
+                            <span className="text-white text-sm font-medium">{train.trainCode}</span>
+                            <span className="text-xs text-gray-400 ml-2">
+                              {train.startTime} → {train.arriveTime}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleSelectTrain(train)}
+                            className="ml-2 px-3 py-1 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition shrink-0"
+                          >
+                            记入计划
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-400 mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                          {Object.entries(train.prices || {}).length > 0 ? (
+                            Object.entries(train.prices).map(([seat, price]) => (
+                              <span key={seat}>
+                                {seat} <span className="text-cyan-400">{price}</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-3 border-t border-gray-700 flex-shrink-0">
+                  <p className="text-xs text-gray-500 text-center">以上为公布票价，实际以 12306 为准</p>
+                </div>
+              </div>
             )}
           </div>
-
-          {planStops.length > 0 && (
-            <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
-              <button
-                onClick={handleClearPlan}
-                className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-2 text-sm transition text-white"
-              >
-                清空
-              </button>
-              <button
-                onClick={handleOptimize}
-                disabled={optimizing}
-                className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
-                  optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {optimizing ? 'AI 优化中...' : 'AI 优化'}
-              </button>
-            </div>
-          )}
         </div>
-
-        {!rightOpen && (
-          <button
-            onClick={() => setRightOpen(true)}
-            className="absolute right-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
-          >
-            ◀
-          </button>
-        )}
 
         {toast && (
           <div
@@ -831,124 +962,6 @@ export default function WorkbenchPage() {
             style={{ animation: 'fadeIn 0.3s ease-out' }}
           >
             {toast}
-          </div>
-        )}
-
-        {showTicketPrompt && (
-          <div
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-            onClick={() => setShowTicketPrompt(false)}
-          >
-            <div
-              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-80 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p className="text-white text-sm mb-5">保存成功！要查票吗？</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowTicketPrompt(false)}
-                  className="flex-1 py-2 rounded bg-gray-800 hover:bg-gray-700 text-white text-sm transition"
-                >
-                  暂不
-                </button>
-                <button
-                  onClick={openTicketModal}
-                  className="flex-1 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-sm transition"
-                >
-                  查票 →
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showTicketModal && (
-          <div
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-            onClick={() => setShowTicketModal(false)}
-          >
-            <div
-              className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-[480px] max-h-[80vh] flex flex-col shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4 flex-shrink-0">
-                <h3 className="text-white font-semibold">查票</h3>
-                <button
-                  onClick={() => setShowTicketModal(false)}
-                  className="text-gray-400 hover:text-white text-sm"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-3 mb-4 flex-shrink-0">
-                <input
-                  value={ticketFrom}
-                  onChange={e => setTicketFrom(e.target.value)}
-                  placeholder="出发地"
-                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
-                />
-                <input
-                  value={ticketTo}
-                  onChange={e => setTicketTo(e.target.value)}
-                  placeholder="目的地"
-                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
-                />
-                <input
-                  type="date"
-                  value={ticketDate}
-                  onChange={e => setTicketDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
-                />
-                <button
-                  onClick={handleTicketQuery}
-                  disabled={ticketLoading}
-                  className={`w-full py-2 rounded text-sm font-semibold text-white transition ${
-                    ticketLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'
-                  }`}
-                >
-                  {ticketLoading ? '查询中...' : '查询'}
-                </button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 space-y-2">
-                {ticketLoading ? (
-                  <p className="text-sm text-gray-400 text-center py-4">查询中...</p>
-                ) : ticketError ? (
-                  <p className="text-sm text-red-400 text-center py-4">{ticketError}</p>
-                ) : hasQueried && trainResults.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-4">暂无车次</p>
-                ) : (
-                  trainResults.map((train, idx) => (
-                    <div
-                      key={train.trainNo || train.trainCode || idx}
-                      className="bg-gray-800 border border-gray-700 rounded p-3 flex items-center justify-between"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-white text-sm font-medium">{train.trainCode}</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          {train.startTime} → {train.arriveTime}
-                        </div>
-                      </div>
-                      <div className="ml-3 text-right shrink-0">
-                        <div className="text-xs text-gray-400">
-                          二等座 <span className="text-cyan-400">{train.prices?.['二等座'] || '—'}</span>
-                        </div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          一等座 <span className="text-cyan-400">{train.prices?.['一等座'] || '—'}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleSelectTrain(train)}
-                        className="ml-3 px-3 py-1.5 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition shrink-0"
-                      >
-                        选这个
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
           </div>
         )}
       </div>
