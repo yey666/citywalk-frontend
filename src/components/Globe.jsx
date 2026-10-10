@@ -66,20 +66,45 @@ export default function GlobeComponent({ cities, onCityClick }) {
             const el = document.createElement('div')
             el.innerHTML = `
               <div style="
-                width: 14px;
-                height: 14px;
-                border-radius: 50%;
-                background: #60a5fa;
-                box-shadow: 0 0 10px #60a5fa;
-                cursor: pointer;
-                transition: transform 0.2s;
-              "></div>
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 4px;
+                transform: translate(-50%, -50%);
+              ">
+                <div class="city-label" style="
+                  font-size: 12px;
+                  color: #e0f2fe;
+                  background: rgba(0, 0, 0, 0.7);
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  white-space: nowrap;
+                  opacity: 0;
+                  pointer-events: none;
+                  transition: opacity 0.15s;
+                ">${city.name}</div>
+                <div class="city-dot" style="
+                  width: 14px;
+                  height: 14px;
+                  border-radius: 50%;
+                  background: #60a5fa;
+                  box-shadow: 0 0 10px #60a5fa;
+                  cursor: pointer;
+                  transition: transform 0.2s;
+                "></div>
+              </div>
             `
             el.style.pointerEvents = 'auto'
             el.style.cursor = 'pointer'
             el.onclick = () => handleClick(city)
-            el.onmouseenter = () => el.firstElementChild.style.transform = 'scale(1.6)'
-            el.onmouseleave = () => el.firstElementChild.style.transform = 'scale(1)'
+            el.onmouseenter = () => {
+              el.querySelector('.city-dot').style.transform = 'scale(1.6)'
+              el.querySelector('.city-label').style.opacity = '1'
+            }
+            el.onmouseleave = () => {
+              el.querySelector('.city-dot').style.transform = 'scale(1)'
+              el.querySelector('.city-label').style.opacity = '0'
+            }
             return el
           }}
         />
