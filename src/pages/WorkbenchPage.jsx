@@ -898,7 +898,12 @@ export default function WorkbenchPage() {
                 activeTab === 'ticket' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              查票
+              <span className="inline-flex items-center gap-1">
+                查票
+                {tickets.length === 0 && (
+                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                )}
+              </span>
               {activeTab === 'ticket' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400" />
               )}
