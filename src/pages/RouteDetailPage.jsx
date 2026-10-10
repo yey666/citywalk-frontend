@@ -21,6 +21,15 @@ function buildNavUrl(from, to) {
   return `https://uri.amap.com/navigation?from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}&mode=transit`
 }
 
+// 价格只展示二等座；没有二等座则取第一个座位类型
+function renderTicketPrice(prices) {
+  if (!prices || typeof prices !== 'object') return '—'
+  const entries = Object.entries(prices)
+  if (entries.length === 0) return '—'
+  const [seat, price] = entries.find(([s]) => s === '二等座') || entries[0]
+  return `${seat} ${price}`
+}
+
 export default function RouteDetailPage() {
   const { id } = useParams()
   const routeId = Number(id)
@@ -30,6 +39,12 @@ export default function RouteDetailPage() {
   const [saving, setSaving] = useState(false)
   const [activeNodeIndex, setActiveNodeIndex] = useState(0)
   const [transit, setTransit] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (msg, ms = 2000) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), ms)
+  }
 
   useEffect(() => {
     if (!routeId) return
@@ -54,6 +69,56 @@ export default function RouteDetailPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // http 等非安全环境下 navigator.clipboard 不可用，走降级方案
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+  }
+
+  const handleGo12306 = async () => {
+    const trainCode = route.tickets?.[0]?.trainCode
+    if (!trainCode) return
+    window.open('https://www.12306.cn', '_blank', 'noopener,noreferrer')
+    await copyText(trainCode)
+    showToast(`已复制车次 ${trainCode}，去 12306 搜索`)
+  }
+
+  const handleShare = async () => {
+    await copyText(window.location.origin + window.location.pathname)
+    showToast('链接已复制')
+  }
+
+  const handleDeleteTicket = async (ticketId) => {
+    if (!confirm('确定删除这条车次？')) return
+    try {
+      await axios.delete(`/api/route/${route.id}/tickets/${ticketId}`)
+      const res = await axios.get(`/api/route/${route.id}`)
+      setRoute(res.data)
+      showToast('已删除车次')
+    } catch (err) {
+      showToast('删除失败：' + (err.response?.data?.message || err.message), 3000)
+    }
+  }
+
+  const handleReplaceTicket = async (ticketId) => {
+    if (!confirm('确定换车次？当前车次会被删除')) return
+    try {
+      await axios.delete(`/api/route/${route.id}/tickets/${ticketId}`)
+    } catch (err) {
+      showToast('删除失败：' + (err.response?.data?.message || err.message), 3000)
+      return
+    }
+    navigate(`/plan/${route.cityId}?tab=ticket`)
   }
 
   if (loading) {
@@ -234,23 +299,71 @@ export default function RouteDetailPage() {
               <div className="p-6 border-t border-gray-800">
                 <h3 className="text-sm font-semibold text-white mb-3">🚄 已绑定车次</h3>
                 <div className="space-y-2">
-                  {route.tickets.map((t, idx) => (
-                    <div key={idx} className="flex flex-wrap items-center gap-3 text-sm bg-gray-800/50 rounded p-3">
-                      <span className="text-cyan-400">{t.travelDate || '—'}</span>
-                      <span className="text-white font-medium">{t.trainCode}</span>
-                      <span className="text-gray-400 text-xs">
-                        {t.startTime} → {t.arriveTime}
-                      </span>
-                      {t.fromStation && t.toStation && (
-                        <span className="text-gray-500 text-xs">
-                          {t.fromStation} → {t.toStation}
-                        </span>
-                      )}
+                  {route.tickets.map((t) => (
+                    <div key={t.id} className="text-sm bg-gray-800/50 rounded p-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="text-cyan-400">{t.travelDate || '—'}</span>
+                          <span className="text-white font-medium">{t.trainCode}</span>
+                          <span className="text-gray-400 text-xs">
+                            {t.startTime} → {t.arriveTime}
+                          </span>
+                        </div>
+                        {t.fromStation && t.toStation && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {t.fromStation} → {t.toStation}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-400 mt-1">{renderTicketPrice(t.prices)}</div>
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => handleReplaceTicket(t.id)}
+                          className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                        >
+                          换
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTicket(t.id)}
+                          className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-red-600 rounded transition"
+                        >
+                          删
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            <div className="p-6 border-t border-gray-800">
+              <h3 className="text-sm font-semibold text-white mb-3">出发</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleGo12306}
+                  disabled={!route.tickets?.length}
+                  className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                    route.tickets?.length
+                      ? 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  去 12306 买
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition"
+                >
+                  存到手机
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="px-4 py-2 rounded text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition"
+                >
+                  分享
+                </button>
+              </div>
+            </div>
 
             <div className="p-6 text-center text-xs text-gray-600">
               数据仅供参考 · 出发前请确认开放时间
@@ -258,6 +371,12 @@ export default function RouteDetailPage() {
           </div>
         </div>
       </div>
+
+      {toast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-cyan-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

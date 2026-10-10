@@ -128,6 +128,7 @@ export default function WorkbenchPage() {
   const [searchParams] = useSearchParams()
   const fromParam = searchParams.get('from')
   const routeIdParam = searchParams.get('routeId')
+  const tabParam = searchParams.get('tab')
 
   const {
     loadCity,
@@ -146,7 +147,7 @@ export default function WorkbenchPage() {
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [activeTab, setActiveTab] = useState(
-    () => (localStorage.getItem('plan_tab') === 'ticket' ? 'ticket' : 'plan')
+    () => (tabParam === 'ticket' || localStorage.getItem('plan_tab') === 'ticket' ? 'ticket' : 'plan')
   )
   const [planExpanded, setPlanExpanded] = useState(
     () => localStorage.getItem('plan_expanded') === '1'
@@ -394,24 +395,14 @@ export default function WorkbenchPage() {
       if (res.data?.routeId) {
         localStorage.setItem(`planRouteId:${cityId}`, res.data.routeId)
       }
-      showToast('保存成功！已加入「我的计划」', 1500)
-      resetTicketForm()
-      selectTab('ticket')
+      showToast('保存成功', 1500)
+      setTimeout(() => navigate('/profile'), 1500)
     } catch (err) {
       console.error('保存失败：', err)
       showToast('保存失败：' + (err.response?.data?.message || err.message), 3000)
     } finally {
       setSaving(false)
     }
-  }
-
-  const resetTicketForm = () => {
-    setTicketFrom('')
-    setTicketTo(city?.name || '')
-    setTicketDate(getTomorrowDate())
-    setTrainResults([])
-    setTicketError(null)
-    setHasQueried(false)
   }
 
   const handleTicketQuery = async () => {
@@ -982,6 +973,11 @@ export default function WorkbenchPage() {
                             {t.startTime} → {t.arriveTime}
                           </span>
                         </div>
+                        {t.fromStation && t.toStation && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {t.fromStation} → {t.toStation}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-400 mt-1">{renderTicketPrice(t.prices)}</div>
                         <div className="flex gap-2 mt-3">
                           <button
@@ -1089,6 +1085,11 @@ export default function WorkbenchPage() {
                             记入计划
                           </button>
                         </div>
+                        {train.fromStation && train.toStation && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {train.fromStation} → {train.toStation}
+                          </div>
+                        )}
                         <div className="text-xs text-gray-400 mt-2 flex flex-wrap gap-x-3 gap-y-1">
                           {Object.entries(train.prices || {}).length > 0 ? (
                             Object.entries(train.prices).map(([seat, price]) => (
