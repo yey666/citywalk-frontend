@@ -201,7 +201,7 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex gap-2 ml-4 flex-shrink-0">
                             <button
-                              onClick={() => window.print()}
+                              onClick={() => window.open('/print/' + plan.id, '_blank')}
                               className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
                             >
                               存到手机

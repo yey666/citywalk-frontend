@@ -351,7 +351,7 @@ export default function RouteDetailPage() {
                   去 12306 买
                 </button>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => window.open('/print/' + route.id, '_blank')}
                   className="px-4 py-2 rounded text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition"
                 >
                   存到手机

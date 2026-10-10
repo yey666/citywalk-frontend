@@ -6,6 +6,7 @@ import CityDetailPage from './pages/CityDetailPage'
 import WorkbenchPage from './pages/WorkbenchPage'
 import RouteDetailPage from './pages/RouteDetailPage'
 import ProfilePage from './pages/ProfilePage'
+import PrintPage from './pages/PrintPage'
 import LoginPage from './pages/LoginPage'
 
 function RequireAuth({ children }) {
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/plan/:id" element={<RequireAuth><WorkbenchPage /></RequireAuth>} />
           <Route path="/route/:id" element={<RequireAuth><RouteDetailPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/print/:id" element={<PrintPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </PlanProvider>
