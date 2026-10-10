@@ -212,6 +212,36 @@ export default function WorkbenchPage() {
     })
   }, [cityId, loadCity])
 
+  // 进工作台时，把已标记的 POI 自动加入计划（一次性），用 flag 记录避免重复加
+  useEffect(() => {
+    if (!cityId || pois.length === 0) return
+    if (localStorage.getItem(`markedIdsAutoAdded:${cityId}`) === '1') return
+    let ids
+    try {
+      ids = JSON.parse(localStorage.getItem(`markedIds:${cityId}`) || '[]')
+    } catch {
+      ids = []
+    }
+    if (!Array.isArray(ids) || ids.length === 0) return
+
+    const idSet = new Set(ids)
+    const stops = pois
+      .filter(p => idSet.has(p.id))
+      .map(p => ({
+        poiId: p.id,
+        name: p.name,
+        lng: p.lng,
+        lat: p.lat,
+        stayDuration: 60,
+        tip: p.description || '',
+      }))
+
+    if (stops.length > 0) {
+      addStops(stops)
+    }
+    localStorage.setItem(`markedIdsAutoAdded:${cityId}`, '1')
+  }, [cityId, pois, addStops])
+
   useEffect(() => {
     if (!activeRouteId) return
     axios.get(`/api/route/${activeRouteId}`)
@@ -396,6 +426,8 @@ export default function WorkbenchPage() {
         localStorage.setItem(`planRouteId:${cityId}`, res.data.routeId)
       }
       showToast('保存成功', 1500)
+      localStorage.removeItem(`planTickets:${cityId}`)
+      setTickets([])
       setTimeout(() => navigate('/profile'), 1500)
     } catch (err) {
       console.error('保存失败：', err)
@@ -663,7 +695,7 @@ export default function WorkbenchPage() {
                               : 'bg-blue-600 hover:bg-blue-700 text-white'
                           }`}
                         >
-                          {inPlan ? '已加' : '+ 加入'}
+                          {inPlan ? '已加入' : '+ 加入'}
                         </button>
                       </div>
                     )
@@ -715,7 +747,7 @@ export default function WorkbenchPage() {
                               : 'bg-blue-600 hover:bg-blue-700 text-white'
                           }`}
                         >
-                          {inPlan ? '已加' : '+ 加入'}
+                          {inPlan ? '已加入' : '+ 加入'}
                         </button>
                       </div>
                     )
@@ -773,7 +805,7 @@ export default function WorkbenchPage() {
                                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                                     }`}
                                   >
-                                    {inPlan ? '已加' : '+ 加入'}
+                                    {inPlan ? '已加入' : '+ 加入'}
                                   </button>
                                 </div>
                                 {seg && (

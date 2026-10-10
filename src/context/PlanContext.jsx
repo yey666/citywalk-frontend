@@ -33,7 +33,10 @@ export function PlanProvider({ children }) {
       else next.add(poiId)
       return next
     })
-  }, [])
+    if (cityId != null) {
+      localStorage.removeItem(`markedIdsAutoAdded:${cityId}`)
+    }
+  }, [cityId])
 
   const addToPlan = useCallback((poi) => {
     setPlanStops(prev => {
