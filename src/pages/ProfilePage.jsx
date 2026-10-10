@@ -12,6 +12,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [expandedDetail, setExpandedDetail] = useState(null)
+  const [toast, setToast] = useState(null)
+
+  const showToast = (msg, ms = 2000) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), ms)
+  }
 
   const nickname = localStorage.getItem('nickname') || '用户'
   const username = localStorage.getItem('username') || 'user'
@@ -51,6 +57,22 @@ export default function ProfilePage() {
       console.error('删除失败：', err)
       alert('删除失败：' + (err.response?.data?.message || err.message))
     }
+  }
+
+  const handleShare = async (planId) => {
+    const link = window.location.origin + '/route/' + planId
+    try {
+      await navigator.clipboard.writeText(link)
+    } catch {
+      // http 等非安全环境下 navigator.clipboard 不可用，走降级方案
+      const ta = document.createElement('textarea')
+      ta.value = link
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    }
+    showToast('链接已复制')
   }
 
   const handleLogout = () => {
@@ -179,6 +201,18 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex gap-2 ml-4 flex-shrink-0">
                             <button
+                              onClick={() => window.print()}
+                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                            >
+                              存到手机
+                            </button>
+                            <button
+                              onClick={() => handleShare(plan.id)}
+                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                            >
+                              分享
+                            </button>
+                            <button
                               onClick={() => handleExpand(plan.id)}
                               className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
                             >
@@ -253,6 +287,12 @@ export default function ProfilePage() {
           </div>
         </main>
       </div>
+
+      {toast && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-cyan-600 text-white px-6 py-3 rounded-lg shadow-lg z-50">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
