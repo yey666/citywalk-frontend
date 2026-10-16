@@ -8,6 +8,9 @@ import RouteDetailPage from './pages/RouteDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import PrintPage from './pages/PrintPage'
 import LoginPage from './pages/LoginPage'
+import CommunityPage from './pages/CommunityPage'
+import PostDetailPage from './pages/PostDetailPage'
+import PostNewPage from './pages/PostNewPage'
 
 function RequireAuth({ children }) {
   const { user } = useAuth()
@@ -28,6 +31,9 @@ export default function App() {
           <Route path="/plan/:id" element={<RequireAuth><WorkbenchPage /></RequireAuth>} />
           <Route path="/route/:id" element={<RequireAuth><RouteDetailPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/community" element={<RequireAuth><CommunityPage /></RequireAuth>} />
+          <Route path="/community/new" element={<RequireAuth><PostNewPage /></RequireAuth>} />
+          <Route path="/community/:id" element={<RequireAuth><PostDetailPage /></RequireAuth>} />
           <Route path="/print/:id" element={<PrintPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

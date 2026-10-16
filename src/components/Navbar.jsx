@@ -25,7 +25,14 @@ export default function Navbar({ currentPage }) {
         >
           首页
         </button>
-        <span className="text-sm text-gray-500 cursor-not-allowed">社区（开发中）</span>
+        <button
+          onClick={() => navigate('/community')}
+          className={`text-sm transition ${
+            currentPage === 'community' ? 'text-white' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          社区
+        </button>
         <button
           onClick={() => navigate('/profile')}
           className={`text-sm transition ${

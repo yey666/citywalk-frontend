@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Navbar from '../components/Navbar'
 import { usePlan } from '../context/PlanContext'
 
 // ============ 抽屉里的小节 ============
@@ -100,6 +101,7 @@ export default function CityDetailPage() {
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-950 text-white">
+      <Navbar currentPage="city" />
 
       {/* 顶部返回 */}
       <div className="h-14 flex items-center px-6 border-b border-white/5 flex-shrink-0">
@@ -347,9 +349,7 @@ export default function CityDetailPage() {
 
               <button
                 className="mt-8 w-full py-2 bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 rounded-lg hover:bg-cyan-500/20 transition text-sm"
-                onClick={() => {
-                  console.log('查看全部反馈', selectedPoi.id)
-                }}
+                onClick={() => navigate(`/community?poiId=${selectedPoi.id}`)}
               >
                 查看全部反馈 →
               </button>
