@@ -91,6 +91,13 @@ export default function CityDetailPage() {
 
   if (!cityId) return null
 
+  const sortedPois = [...pois].sort((a, b) => {
+    const aHasPhoto = a.photos ? 1 : 0
+    const bHasPhoto = b.photos ? 1 : 0
+    if (aHasPhoto !== bHasPhoto) return bHasPhoto - aHasPhoto
+    return a.id - b.id
+  })
+
   return (
     <div className="h-full w-full flex flex-col bg-gray-950 text-white">
 
@@ -172,7 +179,7 @@ export default function CityDetailPage() {
                   <p className="text-gray-500 text-center py-12">暂无景点数据</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
-                    {pois.slice(0, visibleCount).map(poi => {
+                    {sortedPois.slice(0, visibleCount).map(poi => {
                       const marked = markedIds.has(poi.id)
                       return (
                         <div
