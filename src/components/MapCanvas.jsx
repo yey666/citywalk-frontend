@@ -70,9 +70,9 @@ export default function MapCanvas({
           ? `<div style="
               width: 20px; height: 20px;
               border-radius: 50%;
-              background: #3b82f6;
+              background: #22d3ee;
               border: 3px solid white;
-              box-shadow: 0 0 12px #3b82f6;
+              box-shadow: 0 0 12px #22d3ee;
               cursor: pointer;
             "></div>`
           : `<div style="
@@ -100,12 +100,12 @@ export default function MapCanvas({
           const infoContent = inPlan
             ? `<div style="padding: 10px; min-width: 140px; font-family: system-ui;">
                 <div style="font-weight: 600; margin-bottom: 4px; font-size: 14px;">${poi.name}</div>
-                <div style="font-size: 12px; color: #3b82f6;">✓ 已在计划中</div>
+                <div style="font-size: 12px; color: #22d3ee;">✓ 已在计划中</div>
               </div>`
             : `<div style="padding: 10px; min-width: 160px; font-family: system-ui;">
                 <div style="font-weight: 600; margin-bottom: 4px; font-size: 14px;">${poi.name}</div>
                 <div style="font-size: 12px; color: #888; margin-bottom: 10px;">${poi.category || ''}</div>
-                <button data-poi-id="${poi.id}" class="add-poi-btn" style="background: #3b82f6; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">+ 加入计划</button>
+                <button data-poi-id="${poi.id}" class="add-poi-btn" style="background: #22d3ee; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;">+ 加入计划</button>
               </div>`
 
           const infoWindow = new window.AMap.InfoWindow({
@@ -143,9 +143,9 @@ export default function MapCanvas({
             width: ${size}px;
             height: ${size}px;
             border-radius: 50%;
-            background: #1d4ed8;                 /* 深蓝 */
+            background: #06b6d4;                 /* 深蓝 */
             border: 3px solid white;             /* 白边框 */
-            box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.3), 0 2px 8px rgba(0,0,0,0.4);  /* 蓝色光环 + 阴影 */
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.35), 0 2px 8px rgba(0,0,0,0.4);  /* 蓝色光环 + 阴影 */
             color: white;
             font-weight: bold;
             font-size: ${isLatest ? '16' : '13'}px;

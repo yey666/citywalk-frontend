@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import Navbar from '../components/Navbar'
+import Skeleton from '../components/ui/Skeleton'
 
 const PAGE_SIZE = 10
 
@@ -8,7 +10,7 @@ function PostCard({ post, onOpen }) {
   return (
     <div
       onClick={onOpen}
-      className="rounded-lg overflow-hidden border border-white/10 bg-white/5 hover:border-white/20 transition cursor-pointer"
+      className="card card-hover overflow-hidden hover:border-white/30 cursor-pointer"
     >
       {post.images && post.images.length > 0 && (
         <img src={post.images[0]} alt="" className="w-full aspect-[3/4] object-cover" />
@@ -26,6 +28,18 @@ function PostCard({ post, onOpen }) {
             {post.liked ? '♥' : '♡'} {post.likeCount || 0}
           </span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function PostCardSkeleton() {
+  return (
+    <div className="card overflow-hidden">
+      <Skeleton className="w-full aspect-[3/4] rounded-none" />
+      <div className="p-2 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
   )
@@ -76,9 +90,11 @@ export default function CommunityPage() {
   const rightPosts = posts.filter((_, i) => i % 2 === 1)
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-950 text-white">
+    <div className="h-full w-full flex flex-col text-white">
+      <Navbar currentPage="community" />
+
       {/* 顶部栏 */}
-      <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 flex-shrink-0">
+      <div className="h-14 flex items-center justify-between px-6 border-b border-white/10 bg-gray-900/60 backdrop-blur-xl flex-shrink-0">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm">
           ← 返回
         </button>
@@ -107,7 +123,18 @@ export default function CommunityPage() {
       {/* 瀑布流 */}
       <div className="flex-1 overflow-y-auto py-6">
         {posts.length === 0 && !loading && (
-          <p className="text-gray-500 text-center py-16">还没有帖子，来发第一帖吧～</p>
+          <p className="text-gray-400 text-center py-16">还没有帖子，来发第一帖吧～</p>
+        )}
+
+        {loading && posts.length === 0 && (
+          <div className="max-w-5xl mx-auto flex gap-3 px-4">
+            <div className="flex-1 flex flex-col gap-4">
+              {[0, 1, 2].map(i => <PostCardSkeleton key={i} />)}
+            </div>
+            <div className="flex-1 flex flex-col gap-4">
+              {[3, 4, 5].map(i => <PostCardSkeleton key={i} />)}
+            </div>
+          </div>
         )}
 
         <div className="max-w-5xl mx-auto flex gap-3 px-4">
@@ -123,7 +150,7 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        {loading && <p className="text-gray-500 text-center py-4">加载中...</p>}
+        {loading && posts.length > 0 && <p className="text-gray-500 text-center py-4">加载中...</p>}
 
         {hasMore && !loading && (
           <div className="text-center pt-4 pb-2">

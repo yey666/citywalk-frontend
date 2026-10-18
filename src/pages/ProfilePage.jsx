@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
+import Skeleton from '../components/ui/Skeleton'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProfilePage() {
@@ -81,15 +82,15 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
+    <div className="h-screen w-screen flex flex-col text-white">
       <Navbar currentPage="profile" />
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧栏 */}
-        <aside className="w-72 bg-gray-950 border-r border-gray-800 flex flex-col flex-shrink-0">
+        <aside className="w-72 bg-gray-900/60 backdrop-blur-xl border-r border-white/10 flex flex-col flex-shrink-0">
           {/* 用户信息 */}
-          <div className="p-6 border-b border-gray-800">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-3xl font-bold text-white mb-4">
+          <div className="p-6 border-b border-white/10">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-3xl font-bold text-white mb-4">
               {nickname.charAt(0).toUpperCase()}
             </div>
             <h2 className="text-lg font-semibold text-white">{nickname}</h2>
@@ -102,8 +103,8 @@ export default function ProfilePage() {
               onClick={() => setActiveTab('plans')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition mb-1 ${
                 activeTab === 'plans'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-cyan-500/15 text-cyan-300'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-3">
@@ -117,8 +118,8 @@ export default function ProfilePage() {
               onClick={() => setActiveTab('collections')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition mb-1 ${
                 activeTab === 'collections'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-cyan-500/15 text-cyan-300'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-3">
@@ -132,8 +133,8 @@ export default function ProfilePage() {
               onClick={() => setActiveTab('posts')}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition ${
                 activeTab === 'posts'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-cyan-500/15 text-cyan-300'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-3">
@@ -145,10 +146,10 @@ export default function ProfilePage() {
           </nav>
 
           {/* 底部退出 */}
-          <div className="p-3 border-t border-gray-800">
+          <div className="p-3 border-t border-white/10">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:bg-gray-800 hover:text-red-400 transition"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-red-400 transition"
             >
               <span>🚪</span>
               <span>退出登录</span>
@@ -158,25 +159,32 @@ export default function ProfilePage() {
 
         {/* 右侧内容区 */}
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-8 py-10">
+          <div key={activeTab} className="max-w-4xl mx-auto px-8 py-10 animate-fade-in">
             {/* 我的计划 */}
             {activeTab === 'plans' && (
               <>
                 <h1 className="text-2xl font-bold mb-6">我的计划</h1>
 
                 {loading ? (
-                  <p className="text-gray-500">加载中...</p>
+                  <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="card p-5">
+                        <Skeleton className="h-5 w-1/3 mb-3" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    ))}
+                  </div>
                 ) : plans.length === 0 ? (
                   <div className="text-center py-20 text-gray-500">
-                    <p className="text-lg mb-2">还没有保存任何计划</p>
-                    <p className="text-sm">去首页规划你的第一条路线吧</p>
+                    <p className="text-lg mb-2 text-gray-300">还没有保存任何计划</p>
+                    <p className="text-sm text-gray-400">去首页规划你的第一条路线吧</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {plans.map(plan => (
                       <div
                         key={plan.id}
-                        className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden hover:border-gray-600 transition"
+                        className="card overflow-hidden hover:border-white/30 transition"
                       >
                         <div className="p-5 flex justify-between items-start">
                           <div className="flex-1 min-w-0">
@@ -202,25 +210,25 @@ export default function ProfilePage() {
                           <div className="flex gap-2 ml-4 flex-shrink-0">
                             <button
                               onClick={() => window.open('/print/' + plan.id, '_blank')}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
                             >
                               存到手机
                             </button>
                             <button
                               onClick={() => handleShare(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
                             >
                               分享
                             </button>
                             <button
                               onClick={() => handleExpand(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
                             >
                               {expandedId === plan.id ? '收起' : '查看'}
                             </button>
                             <button
                               onClick={() => handleDelete(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-red-600 rounded transition"
+                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 rounded-lg transition"
                             >
                               删除
                             </button>
@@ -229,10 +237,10 @@ export default function ProfilePage() {
 
                         {/* 展开详情 */}
                         {expandedId === plan.id && expandedDetail && (
-                          <div className="border-t border-gray-700 p-5 bg-gray-900/50">
+                          <div className="border-t border-white/10 p-5 bg-gray-900/40">
                             {expandedDetail.nodes?.map((node, idx) => (
                               <div key={idx} className="flex gap-3 py-2">
-                                <span className="bg-blue-600 text-xs px-2 py-0.5 rounded h-fit mt-0.5 flex-shrink-0">
+                                <span className="num-badge h-fit mt-0.5 flex-shrink-0">
                                   {node.order}
                                 </span>
                                 <div className="min-w-0 flex-1">
@@ -249,7 +257,7 @@ export default function ProfilePage() {
                               </div>
                             ))}
                             {expandedDetail.tickets?.length > 0 && (
-                              <div className="mt-4 pt-4 border-t border-gray-700">
+                              <div className="mt-4 pt-4 border-t border-white/10">
                                 <p className="text-xs text-gray-400 mb-2">🚄 已绑定车次</p>
                                 {expandedDetail.tickets.map((t, idx) => (
                                   <div key={idx} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm">
@@ -273,15 +281,15 @@ export default function ProfilePage() {
 
             {activeTab === 'collections' && (
               <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2">收藏功能开发中</p>
-                <p className="text-sm">敬请期待</p>
+                <p className="text-lg mb-2 text-gray-300">收藏功能开发中</p>
+                <p className="text-sm text-gray-400">敬请期待</p>
               </div>
             )}
 
             {activeTab === 'posts' && (
               <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2">社区功能开发中</p>
-                <p className="text-sm">敬请期待</p>
+                <p className="text-lg mb-2 text-gray-300">社区功能开发中</p>
+                <p className="text-sm text-gray-400">敬请期待</p>
               </div>
             )}
           </div>

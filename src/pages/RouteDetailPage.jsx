@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 import RouteMap from '../components/RouteMap'
+import Skeleton from '../components/ui/Skeleton'
 
 function summarizeSegment(seg) {
   const distance = Number(seg.distance) || 0
@@ -123,16 +124,22 @@ export default function RouteDetailPage() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
+      <div className="h-screen w-screen flex flex-col text-white">
         <Navbar currentPage="route" />
-        <div className="flex-1 flex items-center justify-center text-gray-500">加载中...</div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="space-y-3 w-64">
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        </div>
       </div>
     )
   }
 
   if (!route) {
     return (
-      <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
+      <div className="h-screen w-screen flex flex-col text-white">
         <Navbar currentPage="route" />
         <div className="flex-1 flex items-center justify-center text-gray-500">路线不存在</div>
       </div>
@@ -148,12 +155,12 @@ export default function RouteDetailPage() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-900 text-white">
+    <div className="h-screen w-screen flex flex-col text-white">
       <Navbar currentPage="route" />
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左栏：地图 */}
-        <div className="w-1/2 relative bg-black">
+        <div className="w-1/2 relative">
           <RouteMap
             nodes={route.nodes || []}
             activeIndex={activeNodeIndex}
@@ -162,22 +169,22 @@ export default function RouteDetailPage() {
 
           <button
             onClick={() => navigate(-1)}
-            className="absolute top-4 left-4 bg-gray-900/90 backdrop-blur px-3 py-1.5 rounded text-sm text-white border border-gray-700 hover:bg-gray-800 z-10"
+            className="absolute top-4 left-4 bg-gray-900/80 backdrop-blur px-3 py-1.5 rounded-lg text-sm text-white border border-white/10 hover:bg-white/5 z-10"
           >
             ← 返回
           </button>
         </div>
 
         {/* 右栏：节点列表 */}
-        <div className="w-1/2 bg-gray-900 flex flex-col overflow-hidden">
-          <div className="p-6 border-b border-gray-800 flex-shrink-0">
+        <div className="w-1/2 flex flex-col overflow-hidden">
+          <div className="p-6 border-b border-white/10 flex-shrink-0">
             <div className="flex justify-between items-start mb-3">
               <h1 className="text-2xl font-bold text-white flex-1 pr-4">{route.title}</h1>
               <button
                 onClick={handleSave}
                 disabled={saving}
                 className={`px-4 py-2 rounded text-sm font-semibold transition flex-shrink-0 ${
-                  saving ? 'bg-gray-600' : 'bg-blue-600 hover:bg-blue-700'
+                  saving ? 'bg-white/10 text-gray-500' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
                 }`}
               >
                 {saving ? '保存中...' : '收藏'}
@@ -206,13 +213,13 @@ export default function RouteDetailPage() {
                 <Fragment key={idx}>
                   <div
                     onClick={() => setActiveNodeIndex(idx)}
-                    className={`p-6 border-b border-gray-800 cursor-pointer transition ${
-                      isActive ? 'bg-gray-800/50 border-l-4 border-l-blue-500' : 'hover:bg-gray-800/30 border-l-4 border-l-transparent'
+                    className={`p-6 border-b border-white/10 cursor-pointer transition ${
+                      isActive ? 'bg-gray-900/60 border-l-4 border-l-cyan-400' : 'hover:bg-white/5 border-l-4 border-l-transparent'
                     }`}
                   >
                     <div className="flex items-start gap-3 mb-3">
                       <span className={`text-sm px-2.5 py-1 rounded font-semibold flex-shrink-0 ${
-                        isActive ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'
+                        isActive ? 'bg-cyan-500 text-gray-950' : 'bg-white/10 text-gray-400'
                       }`}>
                         {node.order}
                       </span>
@@ -239,7 +246,7 @@ export default function RouteDetailPage() {
                             key={i}
                             src={url}
                             alt={node.poiName}
-                            className="flex-1 h-24 object-cover rounded-lg border border-gray-700"
+                            className="flex-1 h-24 object-cover rounded-lg border border-white/10"
                             onError={(e) => { e.target.style.display = 'none' }}
                           />
                         ))}
@@ -281,11 +288,11 @@ export default function RouteDetailPage() {
                   </div>
 
                   {seg && (
-                    <div className="flex items-center justify-between px-6 py-2 bg-gray-900 border-b border-gray-800">
+                    <div className="flex items-center justify-between px-6 py-2 bg-gray-900/60 border-b border-white/10">
                       <span className="text-xs text-cyan-400">↓ {summarizeSegment(seg)}</span>
                       <button
                         onClick={() => window.open(buildNavUrl(node, nextNode), '_blank', 'noopener,noreferrer')}
-                        className="text-xs px-2 py-1 rounded border border-gray-600 text-gray-300 hover:text-white hover:border-cyan-500 transition"
+                        className="text-xs px-2 py-1 rounded-lg border border-white/10 text-gray-300 hover:text-white hover:border-cyan-500 transition"
                       >
                         导航
                       </button>
@@ -296,11 +303,11 @@ export default function RouteDetailPage() {
             })}
 
             {route.tickets?.length > 0 && (
-              <div className="p-6 border-t border-gray-800">
+              <div className="p-6 border-t border-white/10">
                 <h3 className="text-sm font-semibold text-white mb-3">🚄 已绑定车次</h3>
                 <div className="space-y-2">
                   {route.tickets.map((t) => (
-                    <div key={t.id} className="text-sm bg-gray-800/50 rounded p-3 flex items-start justify-between gap-3">
+                    <div key={t.id} className="text-sm bg-white/5 rounded-lg p-3 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-3">
                           <span className="text-cyan-400">{t.travelDate || '—'}</span>
@@ -319,13 +326,13 @@ export default function RouteDetailPage() {
                       <div className="flex gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleReplaceTicket(t.id)}
-                          className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 rounded transition"
+                          className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
                         >
                           换
                         </button>
                         <button
                           onClick={() => handleDeleteTicket(t.id)}
-                          className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-red-600 rounded transition"
+                          className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 rounded-lg transition"
                         >
                           删
                         </button>
@@ -336,7 +343,7 @@ export default function RouteDetailPage() {
               </div>
             )}
 
-            <div className="p-6 border-t border-gray-800">
+            <div className="p-6 border-t border-white/10">
               <h3 className="text-sm font-semibold text-white mb-3">出发</h3>
               <div className="flex gap-2">
                 <button
@@ -344,21 +351,21 @@ export default function RouteDetailPage() {
                   disabled={!route.tickets?.length}
                   className={`px-4 py-2 rounded text-sm font-semibold transition ${
                     route.tickets?.length
-                      ? 'bg-cyan-600 hover:bg-cyan-500 text-white'
-                      : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      ? 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+                      : 'bg-white/5 text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   去 12306 买
                 </button>
                 <button
                   onClick={() => window.open('/print/' + route.id, '_blank')}
-                  className="px-4 py-2 rounded text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
                 >
                   存到手机
                 </button>
                 <button
                   onClick={handleShare}
-                  className="px-4 py-2 rounded text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
                 >
                   分享
                 </button>

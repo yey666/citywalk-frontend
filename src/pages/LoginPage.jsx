@@ -40,7 +40,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden bg-gray-950">
+    <div className="h-screen w-screen relative overflow-hidden">
       {/* 背景图：缓慢放大，让城市“活”起来 */}
       <div
         className="absolute inset-0 bg-cover bg-center animate-slow-zoom"
@@ -48,9 +48,9 @@ export default function LoginPage() {
       />
 
       {/* 遮罩：左侧轻，右侧重，让卡片落在暗的一侧 */}
-      <div className="absolute inset-0 bg-gradient-to-r from-gray-950/20 via-blue-950/60 to-gray-950/95" />
+      <div className="absolute inset-0 bg-gradient-to-r from-gray-950/20 via-slate-900/60 to-gray-950/95" />
       {/* 底部渐隐，让城市“从底部升起” */}
-      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-blue-950/80 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-slate-900/80 to-transparent" />
 
       {/* 内容 */}
       <div className="relative h-full flex items-center justify-end px-6 md:px-24">
@@ -66,7 +66,7 @@ export default function LoginPage() {
           </div>
 
           {/* 卡片 */}
-          <div className="bg-gray-950/60 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl p-8">
+          <div className="bg-gray-900/60 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl p-8">
             {/* Tab */}
             <div className="flex mb-8 border-b border-white/10">
               <button
@@ -131,8 +131,9 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-className="relative w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-gray-700 disabled:to-gray-700 text-white font-semibold py-3 rounded-lg transition shadow-lg shadow-blue-600/30 overflow-hidden"            >
-              <span className="absolute bottom-0 left-0 right-0 h-px bg-blue-500/40" />
+              className="relative w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-white/10 disabled:text-gray-500 text-gray-950 font-semibold py-3 rounded-lg transition shadow-lg shadow-cyan-500/20 overflow-hidden"
+            >
+              <span className="absolute bottom-0 left-0 right-0 h-px bg-cyan-300/40" />
               {loading ? '处理中...' : (isRegister ? '创建账号' : '登录')}
             </button>
             </form>
@@ -152,7 +153,7 @@ className="relative w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:fr
 
       {/* 登录过渡层 */}
       {transition && (
-        <div className="absolute inset-0 z-[60] bg-gray-950 flex items-center justify-center animate-fade-out-800">
+        <div className="absolute inset-0 z-[60] bg-surface flex items-center justify-center animate-fade-out-800">
           <div className="text-center">
             <p className="text-white/90 text-2xl tracking-[0.3em]">
               世界之大

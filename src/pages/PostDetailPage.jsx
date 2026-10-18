@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Skeleton from '../components/ui/Skeleton'
 
 function formatTime(s) {
   if (!s) return ''
@@ -59,25 +60,35 @@ export default function PostDetailPage() {
   }
 
   if (loading) {
-    return <div className="h-full w-full bg-gray-950 text-white flex items-center justify-center text-gray-500">加载中...</div>
+    return (
+      <div className="h-full w-full text-white">
+        <div className="max-w-2xl mx-auto p-8 space-y-4">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+        </div>
+      </div>
+    )
   }
 
   if (!post) {
-    return <div className="h-full w-full bg-gray-950 text-white flex items-center justify-center text-gray-500">帖子不存在</div>
+    return <div className="h-full w-full text-white flex items-center justify-center text-gray-500">帖子不存在</div>
   }
 
   const images = post.images || []
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-950 text-white">
-      <div className="h-14 flex items-center px-6 border-b border-white/5 flex-shrink-0">
+    <div className="h-full w-full flex flex-col text-white">
+      <div className="h-14 flex items-center px-6 border-b border-white/10 bg-gray-900/60 backdrop-blur-xl flex-shrink-0">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm">← 返回</button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {/* 大图 */}
         {images.length > 0 && (
-          <div className="relative bg-gray-900 rounded-lg flex justify-center">
+          <div className="relative bg-gray-900/60 border border-white/10 rounded-xl flex justify-center">
             <img
               src={images[imgIndex]}
               alt=""
@@ -98,7 +109,7 @@ export default function PostDetailPage() {
         )}
 
         <div className="max-w-2xl mx-auto p-8">
-          <h1 className="text-2xl font-semibold mb-4">{post.title || '无标题'}</h1>
+          <h1 className="text-2xl font-bold mb-4">{post.title || '无标题'}</h1>
 
           <div className="flex items-center gap-3 mb-6 text-sm text-gray-400">
             {post.authorAvatar && <img src={post.authorAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />}

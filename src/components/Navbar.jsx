@@ -12,7 +12,7 @@ export default function Navbar({ currentPage }) {
   }
 
   return (
-    <nav className="h-14 bg-gray-950 border-b border-gray-800 flex items-center justify-between px-6 flex-shrink-0">
+    <nav className="h-14 bg-gray-900/60 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 flex-shrink-0">
       <div className="text-white font-bold tracking-wide cursor-pointer" onClick={() => navigate('/')}>
         Citywalk
       </div>
@@ -39,7 +39,7 @@ export default function Navbar({ currentPage }) {
             currentPage === 'profile' ? 'text-white' : 'text-gray-400 hover:text-white'
           }`}
         >
-          个人中心
+          我的
         </button>
       </div>
       <div className="flex items-center gap-3">

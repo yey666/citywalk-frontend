@@ -1,0 +1,2 @@
+/api/*  http://8.134.173.191:8080/api/:splat  200
+/uploads/*  http://8.134.173.191:8080/uploads/:splat  200

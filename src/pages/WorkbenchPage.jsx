@@ -17,6 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import Navbar from '../components/Navbar'
 import MapCanvas from '../components/MapCanvas'
+import Skeleton from '../components/ui/Skeleton'
 import { usePlan } from '../context/PlanContext'
 
 // ==================== 搜索意图词典 ====================
@@ -49,10 +50,10 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`p-3 rounded flex justify-between items-start transition-all duration-500 ${
+      className={`p-3 rounded-lg flex justify-between items-start transition-all duration-500 ${
         highlighted
-          ? 'bg-cyan-900/40 border border-cyan-500'
-          : 'bg-gray-800 border border-transparent'
+          ? 'bg-cyan-500/10 border border-cyan-400/40'
+          : 'bg-white/5 border border-white/10'
       }`}
     >
       <div className="flex-1 min-w-0">
@@ -65,7 +66,7 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
           >
             ≡
           </span>
-          <span className="bg-blue-600 text-xs px-2 py-0.5 rounded text-white">
+          <span className="num-badge">
             {index + 1}
           </span>
           <span className="font-medium text-sm truncate text-white">{stop.name}</span>
@@ -144,6 +145,7 @@ export default function WorkbenchPage() {
   const [city, setCity] = useState(null)
   const [pois, setPois] = useState([])
   const [routes, setRoutes] = useState([])
+  const [loading, setLoading] = useState(true)
 
   const [leftOpen, setLeftOpen] = useState(true)
   const [activeTab, setActiveTab] = useState(
@@ -209,7 +211,7 @@ export default function WorkbenchPage() {
       setCity(cityRes.data)
       setPois(poiRes.data || [])
       setRoutes(routeRes.data || [])
-    })
+    }).finally(() => setLoading(false))
   }, [cityId, loadCity])
 
   // 进工作台时，把已标记的 POI 自动加入计划（一次性），用 flag 记录避免重复加
@@ -563,7 +565,7 @@ export default function WorkbenchPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-900">
+    <div className="h-full w-full flex flex-col">
       <Navbar currentPage="plan" />
 
       <div className="flex-1 relative overflow-hidden">
@@ -579,13 +581,10 @@ export default function WorkbenchPage() {
         </div>
 
         {/* 顶部条 */}
-        <div
-          className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 border-b border-gray-700"
-          style={{ background: 'rgba(17, 24, 39, 0.98)' }}
-        >
+        <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 border-b border-white/10 bg-[#111827]/80 backdrop-blur-xl">
           <button
             onClick={() => navigate(`/city/${cityId}`)}
-            className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm transition"
+            className="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg text-sm transition"
           >
             ← 返回
           </button>
@@ -593,8 +592,8 @@ export default function WorkbenchPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`px-4 py-2 rounded text-sm font-semibold transition ${
-              saving ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+              saving ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
             }`}
           >
             {saving ? '保存中...' : '保存路线'}
@@ -603,17 +602,16 @@ export default function WorkbenchPage() {
 
         {/* 左浮层：已标记 / 景点 / 路线 */}
         <div
-          className={`absolute left-4 top-20 w-80 rounded-xl shadow-2xl border border-gray-600 z-40 transition-transform duration-300 flex flex-col ${
+          className={`absolute left-4 top-20 w-80 rounded-xl shadow-2xl border border-white/10 bg-[#111827]/80 backdrop-blur-xl z-40 transition-transform duration-300 flex flex-col ${
             leftOpen ? 'translate-x-0' : '-translate-x-[340px]'
           }`}
           style={{
             maxHeight: 'calc(100vh - 160px)',
-            background: 'rgba(17, 24, 39, 0.98)',
             color: 'white',
           }}
         >
           {/* 头部：城市名 + 描述 */}
-          <div className="p-4 border-b border-gray-700 flex-shrink-0">
+          <div className="p-4 border-b border-white/10 flex-shrink-0">
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-white truncate">{city?.name}</h3>
               <button
@@ -631,11 +629,11 @@ export default function WorkbenchPage() {
           </div>
 
           {/* 三个 tab */}
-          <div className="flex border-b border-gray-700 flex-shrink-0">
+          <div className="flex border-b border-white/10 flex-shrink-0">
             <button
               onClick={() => setLeftTab('marked')}
               className={`flex-1 py-2 text-xs font-medium transition relative ${
-                leftTab === 'marked' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                leftTab === 'marked' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               已标记（{markedPois.length}）
@@ -646,7 +644,7 @@ export default function WorkbenchPage() {
             <button
               onClick={() => setLeftTab('pois')}
               className={`flex-1 py-2 text-xs font-medium transition relative ${
-                leftTab === 'pois' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                leftTab === 'pois' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               + 添加
@@ -657,7 +655,7 @@ export default function WorkbenchPage() {
             <button
               onClick={() => setLeftTab('routes')}
               className={`flex-1 py-2 text-xs font-medium transition relative ${
-                leftTab === 'routes' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                leftTab === 'routes' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               路线（{routes.length}）
@@ -669,7 +667,21 @@ export default function WorkbenchPage() {
 
           {/* 内容区：独立滚动 */}
           <div className="overflow-y-auto p-4 flex-1">
-            {leftTab === 'marked' && (
+            {loading && (
+              <div className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                    <Skeleton className="h-7 w-14" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loading && leftTab === 'marked' && (
               <div className="space-y-2">
                 {markedPois.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-8">
@@ -683,16 +695,16 @@ export default function WorkbenchPage() {
                     return (
                       <div
                         key={poi.id}
-                        className="p-2 rounded flex justify-between items-center text-sm bg-gray-800 border border-transparent"
+                        className="p-2 rounded-lg flex justify-between items-center text-sm bg-white/5 border border-white/10"
                       >
                         <span className="truncate flex-1 text-white">{poi.name}</span>
                         <button
                           onClick={() => handleAddToPlan(poi)}
                           disabled={inPlan}
-                          className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                          className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
                             inPlan
-                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
                           }`}
                         >
                           {inPlan ? '已加入' : '+ 加入'}
@@ -704,13 +716,13 @@ export default function WorkbenchPage() {
               </div>
             )}
 
-            {leftTab === 'pois' && (
+            {!loading && leftTab === 'pois' && (
               <div className="space-y-2">
                 <input
                   value={poiSearch}
                   onChange={e => setPoiSearch(e.target.value)}
                   placeholder="搜索景点..."
-                  className="w-full mb-3 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                  className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
                 />
                 {!poiSearch.trim() ? (
                   <p className="text-sm text-gray-400 text-center py-8">
@@ -727,8 +739,8 @@ export default function WorkbenchPage() {
                     return (
                       <div
                         key={poi.id}
-                        className={`p-2 rounded flex justify-between items-center text-sm transition ${
-                          isPreviewed ? 'bg-cyan-900/30 border border-cyan-600' : 'bg-gray-800 border border-transparent'
+                        className={`p-2 rounded-lg flex justify-between items-center text-sm transition ${
+                          isPreviewed ? 'bg-cyan-500/10 border border-cyan-400/40' : 'bg-white/5 border border-white/10'
                         }`}
                       >
                         <span
@@ -741,10 +753,10 @@ export default function WorkbenchPage() {
                         <button
                           onClick={() => handleAddToPlan(poi)}
                           disabled={inPlan}
-                          className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                          className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
                             inPlan
-                              ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
                           }`}
                         >
                           {inPlan ? '已加入' : '+ 加入'}
@@ -756,7 +768,7 @@ export default function WorkbenchPage() {
               </div>
             )}
 
-            {leftTab === 'routes' && (
+            {!loading && leftTab === 'routes' && (
               <div className="space-y-3">
                 {routes.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
@@ -767,10 +779,10 @@ export default function WorkbenchPage() {
                     <div
                       key={route.id}
                       onClick={() => navigate(`/route/${route.id}`)}
-                      className={`bg-gray-800 p-3 rounded-lg border transition cursor-pointer ${
+                      className={`bg-gray-900/60 backdrop-blur p-3 rounded-xl border card-hover cursor-pointer ${
                         isActive
-                          ? 'border-cyan-500 bg-cyan-900/20'
-                          : 'border-gray-700 hover:border-cyan-500'
+                          ? 'border-cyan-400/60 bg-cyan-500/10'
+                          : 'border-white/10 hover:border-white/30'
                       }`}
                     >
                       <h4 className="font-semibold text-sm text-white mb-2">{route.title}</h4>
@@ -791,7 +803,7 @@ export default function WorkbenchPage() {
                             const seg = nextNode ? activeTransitByPair.get(`${node.poiName}|${nextNode.poiName}`) : null
                             return (
                               <Fragment key={node.poiId}>
-                                <div className="flex justify-between items-center bg-gray-900/60 p-2 rounded">
+                                <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg">
                                   <div className="min-w-0 flex-1">
                                     <span className="text-sm text-white truncate block">{node.poiName}</span>
                                     <span className="text-xs text-gray-500">{node.stayDuration} 分钟</span>
@@ -799,21 +811,21 @@ export default function WorkbenchPage() {
                                   <button
                                     onClick={() => handleAddNodeToPlan(node)}
                                     disabled={inPlan}
-                                    className={`ml-2 px-2 py-0.5 rounded text-xs whitespace-nowrap transition ${
+                                    className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
                                       inPlan
-                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                                        : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
                                     }`}
                                   >
                                     {inPlan ? '已加入' : '+ 加入'}
                                   </button>
                                 </div>
                                 {seg && (
-                                  <div className="flex items-center justify-between bg-gray-900/40 px-2 py-1 rounded">
+                                  <div className="flex items-center justify-between bg-white/5 px-2 py-1 rounded-lg">
                                     <span className="text-xs text-cyan-400">↓ {summarizeSegment(seg)}</span>
                                     <button
                                       onClick={() => window.open(buildNavUrl(node, nextNode), '_blank', 'noopener,noreferrer')}
-                                      className="text-xs px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:text-white hover:border-cyan-500 transition"
+                                      className="text-xs px-2 py-0.5 rounded-lg border border-white/10 text-gray-300 hover:text-white hover:border-cyan-500 transition"
                                     >
                                       导航
                                     </button>
@@ -824,7 +836,7 @@ export default function WorkbenchPage() {
                           })}
                           <button
                             onClick={() => handleAddRouteToPlan(activeRouteId)}
-                            className="w-full px-3 py-2 rounded text-sm bg-cyan-600 hover:bg-cyan-700 text-white transition"
+                            className="w-full px-3 py-2 rounded-lg text-sm bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition"
                           >
                             整条加入
                           </button>
@@ -838,7 +850,7 @@ export default function WorkbenchPage() {
                               e.stopPropagation()
                               handleAddRouteToPlan(route.id)
                             }}
-                            className="flex-1 px-3 py-1 rounded text-xs bg-blue-600 hover:bg-blue-700 text-white transition"
+                            className="flex-1 px-3 py-1 rounded-lg text-xs bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition"
                           >
                             + 加入
                           </button>
@@ -848,7 +860,7 @@ export default function WorkbenchPage() {
                             e.stopPropagation()
                             previewRouteOnMap(route.id)
                           }}
-                          className="flex-1 px-3 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-white transition"
+                          className="flex-1 px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
                         >
                           在地图上标出
                         </button>
@@ -865,26 +877,20 @@ export default function WorkbenchPage() {
         {!leftOpen && (
           <button
             onClick={() => setLeftOpen(true)}
-            className="absolute left-4 top-20 bg-gray-900/95 backdrop-blur px-3 py-2 rounded shadow-lg border border-gray-700 z-40 text-white"
+            className="absolute left-4 top-20 bg-gray-900/80 backdrop-blur px-3 py-2 rounded-lg shadow-lg border border-white/10 z-40 text-white"
           >
             ▶
           </button>
         )}
 
         {/* 右侧浮层：tab 切换 + 可选展开 */}
-        <div
-          className="absolute right-4 top-20 z-40 rounded-xl border border-gray-600 shadow-2xl overflow-hidden flex flex-col"
-          style={{
-            background: 'rgba(17, 24, 39, 0.98)',
-            color: 'white',
-          }}
-        >
+        <div className="absolute right-4 top-20 z-40 rounded-xl border border-white/10 bg-[#111827]/80 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col">
           {/* tab 栏 */}
-          <div className="w-full flex border-b border-gray-700 flex-shrink-0">
+          <div className="w-full flex border-b border-white/10 flex-shrink-0">
             <button
               onClick={() => selectTab('plan')}
               className={`flex-1 py-2 text-xs font-medium transition relative ${
-                activeTab === 'plan' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                activeTab === 'plan' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               我的计划（{planStops.length}）
@@ -895,7 +901,7 @@ export default function WorkbenchPage() {
             <button
               onClick={() => selectTab('ticket')}
               className={`flex-1 py-2 text-xs font-medium transition relative ${
-                activeTab === 'ticket' ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                activeTab === 'ticket' ? 'text-white' : 'text-gray-400 hover:text-white'
               }`}
             >
               <span className="inline-flex items-center gap-1">
@@ -919,7 +925,7 @@ export default function WorkbenchPage() {
                 style={{ maxHeight: 'calc(100vh - 200px)' }}
               >
                 {originalDistance !== null && (
-                  <div className="px-4 py-3 border-b border-gray-700 bg-gray-800/50 flex-shrink-0">
+                  <div className="px-4 py-3 border-b border-white/10 bg-white/5 flex-shrink-0">
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-400">总距离</span>
                       <span className="text-white">
@@ -972,18 +978,18 @@ export default function WorkbenchPage() {
                 </div>
 
                 {planStops.length > 0 && (
-                  <div className="p-4 border-t border-gray-700 flex gap-2 flex-shrink-0">
+                  <div className="p-4 border-t border-white/10 flex gap-2 flex-shrink-0">
                     <button
                       onClick={handleClearPlan}
-                      className="flex-1 bg-gray-700 hover:bg-gray-600 rounded py-2 text-sm transition text-white"
+                      className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg py-2 text-sm transition text-white"
                     >
                       清空
                     </button>
                     <button
                       onClick={handleOptimize}
                       disabled={optimizing}
-                      className={`flex-1 rounded py-2 text-sm font-semibold transition text-white ${
-                        optimizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                      className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
+                        optimizing ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
                       }`}
                     >
                       {optimizing ? 'AI 优化中...' : 'AI 优化'}
@@ -992,7 +998,7 @@ export default function WorkbenchPage() {
                 )}
 
                 {/* 绑定车次列表 */}
-                <div className="p-3 border-t border-gray-700 flex-shrink-0 space-y-2">
+                <div className="p-3 border-t border-white/10 flex-shrink-0 space-y-2">
                   {tickets.length === 0 ? (
                     <button
                       onClick={handleAddTicket}
@@ -1002,7 +1008,7 @@ export default function WorkbenchPage() {
                     </button>
                   ) : (
                     tickets.map((t, idx) => (
-                      <div key={idx} className="rounded border border-cyan-600 bg-cyan-900/20 p-3">
+                      <div key={idx} className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 p-3">
                         <div className="text-sm text-cyan-400 mb-1">🚄 {t.date || '—'}</div>
                         <div className="text-white text-sm font-medium">
                           {t.trainCode}
@@ -1019,13 +1025,13 @@ export default function WorkbenchPage() {
                         <div className="flex gap-2 mt-3">
                           <button
                             onClick={() => handleReplaceTicket(idx)}
-                            className="flex-1 py-1.5 rounded text-xs border border-cyan-600 text-cyan-400 hover:bg-cyan-900/40 transition"
+                            className="flex-1 py-1.5 rounded-lg text-xs border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/15 transition"
                           >
                             换
                           </button>
                           <button
                             onClick={() => handleRemoveTicket(idx)}
-                            className="flex-1 py-1.5 rounded text-xs bg-gray-700 hover:bg-red-600 text-white transition"
+                            className="flex-1 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 transition"
                           >
                             删
                           </button>
@@ -1035,7 +1041,7 @@ export default function WorkbenchPage() {
                   )}
                   <button
                     onClick={handleAddTicket}
-                    className="w-full py-1.5 rounded text-xs border border-dashed border-cyan-600 text-cyan-400 hover:bg-cyan-900/20 transition"
+                    className="w-full py-1.5 rounded-lg text-xs border border-dashed border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10 transition"
                   >
                     + 添加车次
                   </button>
@@ -1048,7 +1054,7 @@ export default function WorkbenchPage() {
               <button
                 onClick={togglePlanExpanded}
                 title={planExpanded ? '收起我的计划' : '展开我的计划'}
-                className="self-center bg-gray-900/95 backdrop-blur px-1.5 py-2 rounded-md shadow-lg border border-gray-700 text-white hover:text-cyan-400 text-sm shrink-0"
+                className="self-center bg-gray-900/80 backdrop-blur px-1.5 py-2 rounded-md shadow-lg border border-white/10 text-white hover:text-cyan-400 text-sm shrink-0"
               >
                 {planExpanded ? '▶' : '◀'}
               </button>
@@ -1065,30 +1071,30 @@ export default function WorkbenchPage() {
                     正在替换第 {editingTicketIndex + 1} 条车次，选中后点「记入计划」确认
                   </div>
                 )}
-                <div className="p-4 space-y-3 border-b border-gray-700 flex-shrink-0">
+                <div className="p-4 space-y-3 border-b border-white/10 flex-shrink-0">
                   <input
                     value={ticketFrom}
                     onChange={e => setTicketFrom(e.target.value)}
                     placeholder="出发地"
-                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
                   />
                   <input
                     value={ticketTo}
                     onChange={e => setTicketTo(e.target.value)}
                     placeholder="目的地"
-                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
                   />
                   <input
                     type="date"
                     value={ticketDate}
                     onChange={e => setTicketDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
                   />
                   <button
                     onClick={handleTicketQuery}
                     disabled={ticketLoading}
-                    className={`w-full py-2 rounded text-sm font-semibold text-white transition ${
-                      ticketLoading ? 'bg-gray-700 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'
+                    className={`w-full py-2 rounded-lg text-sm font-semibold transition ${
+                      ticketLoading ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
                     }`}
                   >
                     {ticketLoading ? '查询中...' : '查询'}
@@ -1106,7 +1112,7 @@ export default function WorkbenchPage() {
                     trainResults.map((train, idx) => (
                       <div
                         key={`${train.trainNo}-${idx}`}
-                        className="bg-gray-800 border border-gray-700 rounded p-3"
+                        className="bg-white/5 border border-white/10 rounded-lg p-3"
                       >
                         <div className="flex items-center justify-between">
                           <div className="min-w-0">
@@ -1117,7 +1123,7 @@ export default function WorkbenchPage() {
                           </div>
                           <button
                             onClick={() => handleSelectTrain(train)}
-                            className="ml-2 px-3 py-1 rounded text-xs bg-cyan-600 hover:bg-cyan-500 text-white transition shrink-0"
+                            className="ml-2 px-3 py-1 rounded-lg text-xs bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition shrink-0"
                           >
                             记入计划
                           </button>
@@ -1143,7 +1149,7 @@ export default function WorkbenchPage() {
                   )}
                 </div>
 
-                <div className="p-3 border-t border-gray-700 flex-shrink-0">
+                <div className="p-3 border-t border-white/10 flex-shrink-0">
                   <p className="text-xs text-gray-500 text-center">以上为公布票价，实际以 12306 为准</p>
                 </div>
               </div>

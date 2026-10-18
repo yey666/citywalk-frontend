@@ -51,7 +51,7 @@ export default function RouteMap({ nodes, activeIndex, onNodeClick }) {
       if (!node.lng || !node.lat) return
 
       const isActive = idx === activeIndex
-      const bgColor = isActive ? '#3b82f6' : '#06b6d4'
+      const bgColor = isActive ? '#22d3ee' : '#0891b2'
       const size = isActive ? 32 : 26
 
       const markerContent = `
@@ -93,7 +93,7 @@ export default function RouteMap({ nodes, activeIndex, onNodeClick }) {
 
       const polyline = new window.AMap.Polyline({
         path,
-        strokeColor: '#3b82f6',
+        strokeColor: '#22d3ee',
         strokeWeight: 4,
         strokeStyle: 'solid',
         lineJoin: 'round',

@@ -87,8 +87,8 @@ export default function GlobeComponent({ cities, onCityClick }) {
                   width: 14px;
                   height: 14px;
                   border-radius: 50%;
-                  background: #60a5fa;
-                  box-shadow: 0 0 10px #60a5fa;
+                  background: #22d3ee;
+                  box-shadow: 0 0 10px #22d3ee;
                   cursor: pointer;
                   transition: transform 0.2s;
                 "></div>

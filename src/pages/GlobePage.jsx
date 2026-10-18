@@ -15,7 +15,7 @@ export default function GlobePage() {
   }, [])
 
   return (
-    <div className="h-full w-full flex flex-col bg-black">
+    <div className="h-full w-full flex flex-col">
       <Navbar currentPage="home" />
       <div className="flex-1 relative overflow-hidden">
         <GlobeComponent

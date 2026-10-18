@@ -79,8 +79,8 @@ export default function PostNewPage() {
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-950 text-white">
-      <div className="h-14 flex items-center justify-between px-6 border-b border-white/5 flex-shrink-0">
+    <div className="h-full w-full flex flex-col text-white">
+      <div className="h-14 flex items-center justify-between px-6 border-b border-white/10 bg-gray-900/60 backdrop-blur-xl flex-shrink-0">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm">← 返回</button>
         <h1 className="text-lg font-semibold">发帖</h1>
         <button
@@ -157,7 +157,7 @@ export default function PostNewPage() {
                   className="w-full px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 focus:border-cyan-400/40 outline-none"
                 />
                 {poiResults.length > 0 && (
-                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-gray-900 overflow-hidden">
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-white/10 bg-gray-900/90 backdrop-blur-xl overflow-hidden">
                     {poiResults.map(poi => (
                       <button
                         key={poi.id}

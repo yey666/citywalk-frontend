@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
+import Skeleton from '../components/ui/Skeleton'
 import { usePlan } from '../context/PlanContext'
 
 // ============ 抽屉里的小节 ============
@@ -56,6 +57,7 @@ export default function CityDetailPage() {
   const [cityInfo, setCityInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedPoi, setSelectedPoi] = useState(null)
+  const [drawerClosing, setDrawerClosing] = useState(false)
 
   const [rightTab, setRightTab] = useState('pois')
   const [visibleCount, setVisibleCount] = useState(20)
@@ -99,8 +101,16 @@ export default function CityDetailPage() {
     return a.id - b.id
   })
 
+  const closeDrawer = () => {
+    setDrawerClosing(true)
+    setTimeout(() => {
+      setSelectedPoi(null)
+      setDrawerClosing(false)
+    }, 300)
+  }
+
   return (
-    <div className="h-full w-full flex flex-col bg-gray-950 text-white">
+    <div className="h-full w-full flex flex-col text-white">
       <Navbar currentPage="city" />
 
       {/* 顶部返回 */}
@@ -169,10 +179,22 @@ export default function CityDetailPage() {
           </div>
 
           {/* 内容区 */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div key={rightTab} className="flex-1 overflow-y-auto p-8 animate-fade-in">
 
             {loading && (
-              <p className="text-gray-500 text-center py-12">加载中...</p>
+              <div className="grid grid-cols-2 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="card overflow-hidden">
+                    <Skeleton className="h-32 w-full rounded-none" />
+                    <div className="p-3 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-5/6" />
+                      <Skeleton className="h-8 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             {!loading && rightTab === 'pois' && (
@@ -187,10 +209,10 @@ export default function CityDetailPage() {
                         <div
                           key={poi.id}
                           onClick={() => setSelectedPoi(poi)}
-                          className={`rounded-xl overflow-hidden border transition cursor-pointer ${
+                          className={`rounded-xl overflow-hidden border shadow-lg shadow-black/50 card-hover cursor-pointer ${
                             marked
                               ? 'border-cyan-400/60 bg-cyan-400/5'
-                              : 'border-white/10 bg-white/5 hover:border-white/20'
+                              : 'border-white/10 bg-gray-900/60 backdrop-blur hover:border-white/30'
                           }`}
                         >
                           <div
@@ -246,7 +268,7 @@ export default function CityDetailPage() {
                       <div
                         key={route.id}
                         onClick={() => navigate(`/route/${route.id}`)}
-                        className="rounded-xl border border-white/10 bg-white/5 p-4 hover:border-white/20 transition cursor-pointer"
+                        className="card card-hover p-4 hover:border-white/30 cursor-pointer"
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div>
@@ -285,7 +307,7 @@ export default function CityDetailPage() {
       </div>
 
       {/* 底部悬浮条 */}
-      <div className="h-16 flex items-center justify-between px-8 border-t border-white/5 bg-gray-950 flex-shrink-0">
+      <div className="h-16 flex items-center justify-between px-8 border-t border-white/10 bg-[#111827]/80 backdrop-blur-xl flex-shrink-0">
         <span className="text-sm text-gray-400">
           已标记 <span className="text-cyan-400 font-semibold">{markedIds.size}</span> 个地方
         </span>
@@ -295,7 +317,7 @@ export default function CityDetailPage() {
           className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
             markedIds.size === 0
               ? 'bg-white/5 text-gray-600 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white'
+              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
           }`}
         >
           开始规划 →
@@ -306,13 +328,13 @@ export default function CityDetailPage() {
       {selectedPoi && (
         <>
           <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setSelectedPoi(null)}
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 ${drawerClosing ? 'animate-fade-out' : 'animate-fade-in'}`}
+            onClick={closeDrawer}
           />
 
-          <div className="fixed right-0 top-0 h-full w-[480px] bg-gray-950 border-l border-white/10 z-50 overflow-y-auto">
+          <div className={`fixed right-0 top-0 h-full w-[480px] bg-[#111827]/80 backdrop-blur-xl border-l border-white/10 z-50 overflow-y-auto ${drawerClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'}`}>
             <button
-              onClick={() => setSelectedPoi(null)}
+              onClick={closeDrawer}
               className="absolute top-4 right-4 text-gray-400 hover:text-white text-lg z-10"
             >
               ✕
@@ -324,8 +346,8 @@ export default function CityDetailPage() {
             />
 
             <div className="p-6">
-              <h2 className="text-2xl font-semibold mb-2">{selectedPoi.name}</h2>
-              <p className="text-sm text-gray-500 mb-6">
+              <h2 className="text-2xl font-bold mb-2">{selectedPoi.name}</h2>
+              <p className="text-sm text-gray-300 mb-6">
                 {selectedPoi.description || selectedPoi.category || '岭南文化的一角'}
               </p>
 
