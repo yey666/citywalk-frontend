@@ -32,7 +32,7 @@ export default function GlobeComponent({ cities, onCityClick }) {
       // 调整初始视角，让地球不会太大
       globeRef.current.pointOfView({ altitude: 2.5 }, 0)
     }
-  }, [dimensions.width])
+  }, [dimensions.width, cities.length])
 
   const handleClick = (city) => {
     if (globeRef.current) {
@@ -52,7 +52,7 @@ export default function GlobeComponent({ cities, onCityClick }) {
     <div ref={containerRef} className="w-full h-full relative overflow-hidden">
       {dimensions.width > 0 && dimensions.height > 0 && (
         <Globe
-          key={`${dimensions.width}-${dimensions.height}`}  // ← 关键！尺寸变了就重新挂载
+          key={`${dimensions.width}-${dimensions.height}-${cities.length}`}  // ← 尺寸/数据变了就重新挂载
           ref={globeRef}
           width={dimensions.width}
           height={dimensions.height}
