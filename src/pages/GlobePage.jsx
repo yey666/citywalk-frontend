@@ -34,7 +34,7 @@ export default function GlobePage() {
 
         {/* 接口错误提示 */}
         {status === 'error' && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-red-500/90 text-white px-5 py-2.5 rounded-lg shadow-lg z-50 text-sm">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-red-900/50 text-red-200 border border-red-700/40 backdrop-blur px-5 py-2.5 rounded-lg shadow-lg z-50 text-sm">
             城市加载失败：{errorMsg}
           </div>
         )}

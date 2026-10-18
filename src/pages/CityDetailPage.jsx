@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 import Skeleton from '../components/ui/Skeleton'
+import EmptyState from '../components/ui/EmptyState'
 import { usePlan } from '../context/PlanContext'
 
 // ============ 抽屉里的小节 ============
@@ -200,7 +201,10 @@ export default function CityDetailPage() {
             {!loading && rightTab === 'pois' && (
               <>
                 {pois.length === 0 ? (
-                  <p className="text-gray-500 text-center py-12">暂无景点数据</p>
+                  <EmptyState
+                    title="还没有景点"
+                    description="这个城市暂时还没有收录景点，换个城市逛逛吧"
+                  />
                 ) : (
                   <div className="grid grid-cols-2 gap-4">
                     {sortedPois.slice(0, visibleCount).map(poi => {
@@ -230,10 +234,8 @@ export default function CityDetailPage() {
                                 e.stopPropagation()
                                 toggleMark(poi.id)
                               }}
-                              className={`w-full py-1.5 rounded text-xs transition ${
-                                marked
-                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
-                                  : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
+                              className={`btn w-full py-1.5 text-xs ${
+                                marked ? 'btn-tint' : 'btn-ghost'
                               }`}
                             >
                               {marked ? '✓ 已想去' : '想去'}
@@ -247,7 +249,7 @@ export default function CityDetailPage() {
                       <div className="col-span-2 text-center pt-6">
                         <button
                           onClick={() => setVisibleCount(prev => prev + 20)}
-                          className="px-6 py-2 rounded-lg text-sm bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 transition"
+                          className="btn btn-ghost px-6 py-2 text-sm"
                         >
                           加载更多（还有 {pois.length - visibleCount} 个）
                         </button>
@@ -261,7 +263,10 @@ export default function CityDetailPage() {
             {!loading && rightTab === 'routes' && (
               <>
                 {routes.length === 0 ? (
-                  <p className="text-gray-500 text-center py-12">暂无官方路线</p>
+                  <EmptyState
+                    title="暂无官方路线"
+                    description="这里还没有整理好的官方路线，先逛逛景点吧"
+                  />
                 ) : (
                   <div className="space-y-4">
                     {routes.map(route => (
@@ -291,7 +296,7 @@ export default function CityDetailPage() {
                             e.stopPropagation()
                             navigate(`/plan/${cityId}?from=route&routeId=${route.id}`)
                           }}
-                          className="w-full py-2 rounded text-xs bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/20 transition"
+                          className="btn btn-tint w-full py-2 text-xs"
                         >
                           以此为起点规划
                         </button>
@@ -314,10 +319,10 @@ export default function CityDetailPage() {
         <button
           onClick={() => navigate(`/plan/${cityId}`)}
           disabled={markedIds.size === 0}
-          className={`px-6 py-2 rounded-lg text-sm font-medium transition ${
+          className={`btn px-6 py-2 text-sm ${
             markedIds.size === 0
               ? 'bg-white/5 text-gray-600 cursor-not-allowed'
-              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+              : 'btn-primary'
           }`}
         >
           开始规划 →
@@ -346,7 +351,7 @@ export default function CityDetailPage() {
             />
 
             <div className="p-6">
-              <h2 className="text-2xl font-bold mb-2">{selectedPoi.name}</h2>
+              <h2 className="heading-2xl mb-2">{selectedPoi.name}</h2>
               <p className="text-sm text-gray-300 mb-6">
                 {selectedPoi.description || selectedPoi.category || '岭南文化的一角'}
               </p>
@@ -370,7 +375,7 @@ export default function CityDetailPage() {
               </div>
 
               <button
-                className="mt-8 w-full py-2 bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 rounded-lg hover:bg-cyan-500/20 transition text-sm"
+                className="btn btn-tint mt-8 w-full py-2 text-sm"
                 onClick={() => navigate(`/community?poiId=${selectedPoi.id}`)}
               >
                 查看全部反馈 →

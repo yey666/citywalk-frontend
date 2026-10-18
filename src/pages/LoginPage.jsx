@@ -102,7 +102,7 @@ export default function LoginPage() {
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400/60 focus:bg-white/10 transition"
+                  className="input px-4 py-3"
                   placeholder="输入用户名"
                   required
                 />
@@ -116,7 +116,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400/60 focus:bg-white/10 transition"
+                  className="input px-4 py-3"
                   placeholder="输入密码"
                   required
                 />
@@ -131,7 +131,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="relative w-full bg-cyan-500 hover:bg-cyan-400 disabled:bg-white/10 disabled:text-gray-500 text-gray-950 font-semibold py-3 rounded-lg transition shadow-lg shadow-cyan-500/20 overflow-hidden"
+              className="btn btn-primary relative w-full py-3 shadow-lg shadow-cyan-500/20 overflow-hidden disabled:bg-white/10 disabled:text-gray-500 disabled:opacity-100"
             >
               <span className="absolute bottom-0 left-0 right-0 h-px bg-cyan-300/40" />
               {loading ? '处理中...' : (isRegister ? '创建账号' : '登录')}

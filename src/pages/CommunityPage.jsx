@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 import Skeleton from '../components/ui/Skeleton'
+import EmptyState from '../components/ui/EmptyState'
 
 const PAGE_SIZE = 10
 
@@ -24,7 +25,7 @@ function PostCard({ post, onOpen }) {
             )}
             <span className="truncate">{post.authorNickname || '匿名'}</span>
           </span>
-          <span className={`flex-shrink-0 ${post.liked ? 'text-red-500' : 'text-gray-500'}`}>
+          <span className={`flex-shrink-0 ${post.liked ? 'text-red-400/90' : 'text-gray-500'}`}>
             {post.liked ? '♥' : '♡'} {post.likeCount || 0}
           </span>
         </div>
@@ -98,10 +99,10 @@ export default function CommunityPage() {
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white text-sm">
           ← 返回
         </button>
-        <h1 className="text-lg font-semibold">社区</h1>
+        <h1 className="heading-lg">社区</h1>
         <button
           onClick={() => navigate(poiId ? `/community/new?poiId=${poiId}` : '/community/new')}
-          className="px-4 py-1.5 rounded-lg text-sm bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/20 transition"
+          className="btn btn-tint px-4 py-1.5 text-sm"
         >
           + 发帖
         </button>
@@ -123,7 +124,18 @@ export default function CommunityPage() {
       {/* 瀑布流 */}
       <div className="flex-1 overflow-y-auto py-6">
         {posts.length === 0 && !loading && (
-          <p className="text-gray-400 text-center py-16">还没有帖子，来发第一帖吧～</p>
+          <EmptyState
+            title="还没有帖子"
+            description="来发第一帖，记录你的 Citywalk 见闻吧"
+            action={
+              <button
+                onClick={() => navigate(poiId ? `/community/new?poiId=${poiId}` : '/community/new')}
+                className="btn btn-tint px-4 py-1.5 text-sm"
+              >
+                + 发帖
+              </button>
+            }
+          />
         )}
 
         {loading && posts.length === 0 && (
@@ -156,7 +168,7 @@ export default function CommunityPage() {
           <div className="text-center pt-4 pb-2">
             <button
               onClick={loadMore}
-              className="px-6 py-2 rounded-lg text-sm bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 transition"
+              className="btn btn-ghost px-6 py-2 text-sm"
             >
               加载更多
             </button>

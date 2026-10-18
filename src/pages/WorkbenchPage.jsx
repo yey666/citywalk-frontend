@@ -7,6 +7,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  useDndContext,
 } from '@dnd-kit/core'
 import {
   arrayMove,
@@ -18,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities'
 import Navbar from '../components/Navbar'
 import MapCanvas from '../components/MapCanvas'
 import Skeleton from '../components/ui/Skeleton'
+import EmptyState from '../components/ui/EmptyState'
 import { usePlan } from '../context/PlanContext'
 
 // ==================== 搜索意图词典 ====================
@@ -43,7 +46,6 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
 
   return (
@@ -54,7 +56,7 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
         highlighted
           ? 'bg-cyan-500/10 border border-cyan-400/40'
           : 'bg-white/5 border border-white/10'
-      }`}
+      } ${isDragging ? 'opacity-60 scale-105 rotate-2 shadow-2xl shadow-black/60 relative z-50' : ''}`}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -75,10 +77,55 @@ function SortableStop({ stop, index, onRemove, highlighted }) {
       </div>
       <button
         onClick={() => onRemove(stop.poiId)}
-        className="text-gray-400 hover:text-red-400 text-xs ml-2"
+        className="text-gray-400 hover:text-red-300/80 text-xs ml-2"
       >
         ✕
       </button>
+    </div>
+  )
+}
+
+// 左侧列表行：名称 + 「+ 加入」按钮（「已标记」与「搜索景点」共用）
+function PoiRow({ poi, inPlan, onAdd, onPreview, highlighted }) {
+  return (
+    <div
+      className={`p-2 rounded-lg flex justify-between items-center text-sm transition ${
+        highlighted ? 'bg-cyan-500/10 border border-cyan-400/40' : 'bg-white/5 border border-white/10'
+      }`}
+    >
+      <span
+        onClick={onPreview}
+        className={`truncate flex-1 text-white ${onPreview ? 'cursor-pointer hover:text-cyan-400' : ''}`}
+        title={onPreview ? '点击在地图上预览' : undefined}
+      >
+        {poi.name}
+      </span>
+      <button
+        onClick={() => onAdd(poi)}
+        disabled={inPlan}
+        className={`btn ml-2 px-2 py-0.5 text-xs whitespace-nowrap ${
+          inPlan ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'btn-primary'
+        }`}
+      >
+        {inPlan ? '已加入' : '+ 加入'}
+      </button>
+    </div>
+  )
+}
+
+// 拖拽放置区：拖拽进行时显示虚线 + 淡青底色，明确「能放这里」
+function PlanDropZone({ children }) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'plan-dropzone' })
+  const { active } = useDndContext()
+  const isActive = active != null || isOver
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-xl border-2 border-dashed transition-colors duration-300 ${
+        isActive ? 'border-cyan-400 bg-cyan-500/10' : 'border-transparent'
+      }`}
+    >
+      {children}
     </div>
   )
 }
@@ -584,16 +631,16 @@ export default function WorkbenchPage() {
         <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 z-50 border-b border-white/10 bg-[#111827]/80 backdrop-blur-xl">
           <button
             onClick={() => navigate(`/city/${cityId}`)}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg text-sm transition"
+            className="btn btn-ghost px-4 py-2 text-sm"
           >
             ← 返回
           </button>
-          <div className="text-lg font-semibold">{city?.name}</div>
+          <div className="heading-lg">{city?.name}</div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-              saving ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+            className={`btn px-4 py-2 text-sm ${
+              saving ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'btn-primary'
             }`}
           >
             {saving ? '保存中...' : '保存路线'}
@@ -666,7 +713,7 @@ export default function WorkbenchPage() {
           </div>
 
           {/* 内容区：独立滚动 */}
-          <div className="overflow-y-auto p-4 flex-1">
+          <div key={leftTab} className="overflow-y-auto p-4 flex-1 animate-fade-in">
             {loading && (
               <div className="space-y-2">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -684,32 +731,20 @@ export default function WorkbenchPage() {
             {!loading && leftTab === 'marked' && (
               <div className="space-y-2">
                 {markedPois.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">
-                    还没有标记的地方
-                    <br />
-                    回城市详情页点「想去」标记
-                  </p>
+                  <EmptyState
+                    title="还没有标记的地方"
+                    description="回城市详情页，给想去的地方点「想去」"
+                  />
                 ) : (
                   markedPois.map(poi => {
                     const inPlan = planStops.some(s => s.poiId === poi.id)
                     return (
-                      <div
+                      <PoiRow
                         key={poi.id}
-                        className="p-2 rounded-lg flex justify-between items-center text-sm bg-white/5 border border-white/10"
-                      >
-                        <span className="truncate flex-1 text-white">{poi.name}</span>
-                        <button
-                          onClick={() => handleAddToPlan(poi)}
-                          disabled={inPlan}
-                          className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
-                            inPlan
-                              ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
-                          }`}
-                        >
-                          {inPlan ? '已加入' : '+ 加入'}
-                        </button>
-                      </div>
+                        poi={poi}
+                        inPlan={inPlan}
+                        onAdd={handleAddToPlan}
+                      />
                     )
                   })
                 )}
@@ -722,46 +757,31 @@ export default function WorkbenchPage() {
                   value={poiSearch}
                   onChange={e => setPoiSearch(e.target.value)}
                   placeholder="搜索景点..."
-                  className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                  className="input mb-3"
                 />
                 {!poiSearch.trim() ? (
-                  <p className="text-sm text-gray-400 text-center py-8">
-                    输入关键词搜索景点，点「加入」加到计划
-                    <br />
-                    <span className="text-xs text-gray-500">试试搜：吃饭 · 拍照 · 文化 · 公园</span>
-                  </p>
+                  <EmptyState
+                    title="搜索景点"
+                    description="输入关键词，点「加入」把想去的地方加进计划 · 试试：吃饭 / 拍照 / 文化 / 公园"
+                  />
                 ) : filteredPois.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-8">没有匹配的景点</p>
+                  <EmptyState
+                    title="没有匹配的景点"
+                    description="换个关键词试试，或直接在地图上点选"
+                  />
                 ) : (
                   filteredPois.map(poi => {
                     const inPlan = planStops.some(s => s.poiId === poi.id)
                     const isPreviewed = previewPois.some(p => p.id === poi.id)
                     return (
-                      <div
+                      <PoiRow
                         key={poi.id}
-                        className={`p-2 rounded-lg flex justify-between items-center text-sm transition ${
-                          isPreviewed ? 'bg-cyan-500/10 border border-cyan-400/40' : 'bg-white/5 border border-white/10'
-                        }`}
-                      >
-                        <span
-                          onClick={() => previewPoiOnMap(poi)}
-                          className="truncate flex-1 text-white cursor-pointer hover:text-cyan-400"
-                          title="点击在地图上预览"
-                        >
-                          {poi.name}
-                        </span>
-                        <button
-                          onClick={() => handleAddToPlan(poi)}
-                          disabled={inPlan}
-                          className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
-                            inPlan
-                              ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                              : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
-                          }`}
-                        >
-                          {inPlan ? '已加入' : '+ 加入'}
-                        </button>
-                      </div>
+                        poi={poi}
+                        inPlan={inPlan}
+                        onAdd={handleAddToPlan}
+                        onPreview={() => previewPoiOnMap(poi)}
+                        highlighted={isPreviewed}
+                      />
                     )
                   })
                 )}
@@ -771,7 +791,10 @@ export default function WorkbenchPage() {
             {!loading && leftTab === 'routes' && (
               <div className="space-y-3">
                 {routes.length === 0 ? (
-                  <p className="text-sm text-gray-400 text-center py-8">暂无推荐路线</p>
+                  <EmptyState
+                    title="暂无推荐路线"
+                    description="这个城市还没有整理好的官方路线"
+                  />
                 ) : (
                   routes.map(route => {
                     const isActive = route.id === activeRouteId
@@ -811,10 +834,10 @@ export default function WorkbenchPage() {
                                   <button
                                     onClick={() => handleAddNodeToPlan(node)}
                                     disabled={inPlan}
-                                    className={`ml-2 px-2 py-0.5 rounded-lg text-xs whitespace-nowrap transition ${
+                                    className={`btn ml-2 px-2 py-0.5 text-xs whitespace-nowrap ${
                                       inPlan
                                         ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                                        : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-semibold'
+                                        : 'btn-primary'
                                     }`}
                                   >
                                     {inPlan ? '已加入' : '+ 加入'}
@@ -825,7 +848,7 @@ export default function WorkbenchPage() {
                                     <span className="text-xs text-cyan-400">↓ {summarizeSegment(seg)}</span>
                                     <button
                                       onClick={() => window.open(buildNavUrl(node, nextNode), '_blank', 'noopener,noreferrer')}
-                                      className="text-xs px-2 py-0.5 rounded-lg border border-white/10 text-gray-300 hover:text-white hover:border-cyan-500 transition"
+                                      className="btn btn-ghost text-xs px-2 py-0.5 hover:border-cyan-500"
                                     >
                                       导航
                                     </button>
@@ -836,7 +859,7 @@ export default function WorkbenchPage() {
                           })}
                           <button
                             onClick={() => handleAddRouteToPlan(activeRouteId)}
-                            className="w-full px-3 py-2 rounded-lg text-sm bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition"
+                            className="btn btn-primary w-full px-3 py-2 text-sm"
                           >
                             整条加入
                           </button>
@@ -850,7 +873,7 @@ export default function WorkbenchPage() {
                               e.stopPropagation()
                               handleAddRouteToPlan(route.id)
                             }}
-                            className="flex-1 px-3 py-1 rounded-lg text-xs bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition"
+                            className="btn btn-primary flex-1 px-3 py-1 text-xs"
                           >
                             + 加入
                           </button>
@@ -860,7 +883,7 @@ export default function WorkbenchPage() {
                             e.stopPropagation()
                             previewRouteOnMap(route.id)
                           }}
-                          className="flex-1 px-3 py-1 rounded-lg text-xs bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
+                          className="btn btn-ghost flex-1 px-3 py-1 text-xs text-white"
                         >
                           在地图上标出
                         </button>
@@ -917,7 +940,7 @@ export default function WorkbenchPage() {
           </div>
 
           {/* 内容行 */}
-          <div className="flex items-start gap-1">
+          <div key={activeTab} className="flex items-start gap-1 animate-fade-in">
             {/* 我的计划面板 */}
             {showPlan && (
               <div
@@ -945,12 +968,23 @@ export default function WorkbenchPage() {
                 )}
 
                 <div className="overflow-y-auto p-4 flex-1">
-                  {planStops.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">
-                      还没有添加景点
-                      <br />
-                      从左侧列表或地图上点击景点加入
-                    </p>
+                  {loading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-2/3" />
+                            <Skeleton className="h-3 w-1/3" />
+                          </div>
+                          <Skeleton className="h-6 w-6" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : planStops.length === 0 ? (
+                    <EmptyState
+                      title="还没有添加景点"
+                      description="从左侧列表或地图上点击景点加入"
+                    />
                   ) : (
                     <DndContext
                       sensors={sensors}
@@ -961,17 +995,19 @@ export default function WorkbenchPage() {
                         items={planStops.map(s => s.poiId)}
                         strategy={verticalListSortingStrategy}
                       >
-                        <div className="space-y-2">
-                          {planStops.map((stop, idx) => (
-                            <SortableStop
-                              key={stop.poiId}
-                              stop={stop}
-                              index={idx}
-                              onRemove={removeFromPlan}
-                              highlighted={highlightedIds.has(stop.poiId)}
-                            />
-                          ))}
-                        </div>
+                        <PlanDropZone>
+                          <div className="space-y-2">
+                            {planStops.map((stop, idx) => (
+                              <SortableStop
+                                key={stop.poiId}
+                                stop={stop}
+                                index={idx}
+                                onRemove={removeFromPlan}
+                                highlighted={highlightedIds.has(stop.poiId)}
+                              />
+                            ))}
+                          </div>
+                        </PlanDropZone>
                       </SortableContext>
                     </DndContext>
                   )}
@@ -981,15 +1017,15 @@ export default function WorkbenchPage() {
                   <div className="p-4 border-t border-white/10 flex gap-2 flex-shrink-0">
                     <button
                       onClick={handleClearPlan}
-                      className="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg py-2 text-sm transition text-white"
+                      className="btn btn-ghost flex-1 py-2 text-sm text-white"
                     >
                       清空
                     </button>
                     <button
                       onClick={handleOptimize}
                       disabled={optimizing}
-                      className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
-                        optimizing ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+                      className={`btn flex-1 py-2 text-sm ${
+                        optimizing ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'btn-primary'
                       }`}
                     >
                       {optimizing ? 'AI 优化中...' : 'AI 优化'}
@@ -1025,13 +1061,13 @@ export default function WorkbenchPage() {
                         <div className="flex gap-2 mt-3">
                           <button
                             onClick={() => handleReplaceTicket(idx)}
-                            className="flex-1 py-1.5 rounded-lg text-xs border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/15 transition"
+                            className="btn btn-tint flex-1 py-1.5 text-xs"
                           >
                             换
                           </button>
                           <button
                             onClick={() => handleRemoveTicket(idx)}
-                            className="flex-1 py-1.5 rounded-lg text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 transition"
+                            className="btn btn-ghost flex-1 py-1.5 text-xs hover:bg-red-500/15 hover:text-red-300"
                           >
                             删
                           </button>
@@ -1041,7 +1077,7 @@ export default function WorkbenchPage() {
                   )}
                   <button
                     onClick={handleAddTicket}
-                    className="w-full py-1.5 rounded-lg text-xs border border-dashed border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10 transition"
+                    className="btn w-full py-1.5 text-xs border border-dashed border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/10"
                   >
                     + 添加车次
                   </button>
@@ -1076,25 +1112,25 @@ export default function WorkbenchPage() {
                     value={ticketFrom}
                     onChange={e => setTicketFrom(e.target.value)}
                     placeholder="出发地"
-                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                    className="input"
                   />
                   <input
                     value={ticketTo}
                     onChange={e => setTicketTo(e.target.value)}
                     placeholder="目的地"
-                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400"
+                    className="input"
                   />
                   <input
                     type="date"
                     value={ticketDate}
                     onChange={e => setTicketDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400 [color-scheme:dark]"
+                    className="input [color-scheme:dark]"
                   />
                   <button
                     onClick={handleTicketQuery}
                     disabled={ticketLoading}
-                    className={`w-full py-2 rounded-lg text-sm font-semibold transition ${
-                      ticketLoading ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+                    className={`btn w-full py-2 text-sm ${
+                      ticketLoading ? 'bg-white/10 text-gray-500 cursor-not-allowed' : 'btn-primary'
                     }`}
                   >
                     {ticketLoading ? '查询中...' : '查询'}
@@ -1103,11 +1139,22 @@ export default function WorkbenchPage() {
 
                 <div className="overflow-y-auto p-4 flex-1 space-y-2">
                   {ticketLoading ? (
-                    <p className="text-sm text-gray-400 text-center py-4">查询中...</p>
+                    <div className="space-y-2">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-lg bg-white/5 border border-white/10 p-3 space-y-2">
+                          <Skeleton className="h-4 w-1/2" />
+                          <Skeleton className="h-3 w-2/3" />
+                          <Skeleton className="h-3 w-1/3" />
+                        </div>
+                      ))}
+                    </div>
                   ) : ticketError ? (
-                    <p className="text-sm text-red-400 text-center py-4">{ticketError}</p>
+                    <p className="text-sm text-red-300/90 text-center py-4">{ticketError}</p>
                   ) : hasQueried && trainResults.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-4">暂无车次</p>
+                    <EmptyState
+                      title="暂无车次"
+                      description="填好出发地、目的地和日期后点「查询」"
+                    />
                   ) : (
                     trainResults.map((train, idx) => (
                       <div
@@ -1123,7 +1170,7 @@ export default function WorkbenchPage() {
                           </div>
                           <button
                             onClick={() => handleSelectTrain(train)}
-                            className="ml-2 px-3 py-1 rounded-lg text-xs bg-cyan-500 hover:bg-cyan-400 text-gray-950 transition shrink-0"
+                            className="btn btn-primary ml-2 px-3 py-1 text-xs shrink-0"
                           >
                             记入计划
                           </button>

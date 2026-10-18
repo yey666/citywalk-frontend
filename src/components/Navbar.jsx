@@ -46,7 +46,7 @@ export default function Navbar({ currentPage }) {
         <span className="text-sm text-gray-300">{nickname}</span>
         <button
           onClick={handleLogout}
-          className="text-sm text-gray-400 hover:text-red-400 transition"
+          className="text-sm text-gray-400 hover:text-red-300/80 transition"
         >
           退出
         </button>

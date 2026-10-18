@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Skeleton from '../components/ui/Skeleton'
+import EmptyState from '../components/ui/EmptyState'
 
 function formatTime(s) {
   if (!s) return ''
@@ -109,7 +110,7 @@ export default function PostDetailPage() {
         )}
 
         <div className="max-w-2xl mx-auto p-8">
-          <h1 className="text-2xl font-bold mb-4">{post.title || '无标题'}</h1>
+          <h1 className="heading-2xl mb-4">{post.title || '无标题'}</h1>
 
           <div className="flex items-center gap-3 mb-6 text-sm text-gray-400">
             {post.authorAvatar && <img src={post.authorAvatar} alt="" className="w-8 h-8 rounded-full object-cover" />}
@@ -123,9 +124,9 @@ export default function PostDetailPage() {
 
           <button
             onClick={toggleLike}
-            className={`px-6 py-2 rounded-lg text-sm border transition ${post.liked ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400/40' : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'}`}
+            className={`btn px-6 py-2 text-sm ${post.liked ? 'btn-tint' : 'btn-ghost'}`}
           >
-            <span className={post.liked ? 'text-red-500' : 'text-gray-500'}>
+            <span className={post.liked ? 'text-red-400/90' : 'text-gray-500'}>
               {post.liked ? '♥' : '♡'}
             </span>{' '}
             {post.likeCount || 0}
@@ -141,18 +142,23 @@ export default function PostDetailPage() {
                 onChange={e => setCommentText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && submitComment()}
                 placeholder="说点什么..."
-                className="flex-1 px-3 py-2 rounded-lg text-sm bg-white/5 border border-white/10 focus:border-cyan-400/40 outline-none"
+                className="input flex-1"
               />
               <button
                 onClick={submitComment}
-                className="px-4 py-2 rounded-lg text-sm bg-cyan-500/10 text-cyan-300 border border-cyan-400/30 hover:bg-cyan-500/20 transition"
+                className="btn btn-tint px-4 py-2 text-sm"
               >
                 发布
               </button>
             </div>
 
             <div className="space-y-4">
-              {comments.length === 0 && <p className="text-gray-500 text-sm">还没有评论</p>}
+              {comments.length === 0 && (
+                <EmptyState
+                  title="还没有评论"
+                  description="说点什么，成为第一个留言的人"
+                />
+              )}
               {comments.map(c => (
                 <div key={c.id} className="flex gap-3">
                   {c.authorAvatar ? (

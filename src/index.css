@@ -69,7 +69,7 @@
 
   /* 输入框（维度 3 的规范提前固化为类） */
   .input {
-    @apply w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500/40 focus:bg-white/10;
+    @apply w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 caret-brand-400 transition-all duration-300 focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500/40 focus:bg-white/10;
   }
 
   /* 序号徽章 */
@@ -93,6 +93,20 @@
   /* 可点击卡片：悬浮上浮 + 阴影放大（边框高亮由各卡片 inline 提供） */
   .card-hover {
     @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/60;
+  }
+
+  /* 排版层级（维度 1 统一字号：标题 2xl / 页头 lg / 正文 sm / 辅助 xs） */
+  .heading-2xl {
+    @apply text-2xl font-bold tracking-tight text-white;
+  }
+  .heading-lg {
+    @apply text-lg font-semibold text-white;
+  }
+  .body-sm {
+    @apply text-sm text-gray-300;
+  }
+  .caption {
+    @apply text-xs text-gray-500;
   }
 }
 

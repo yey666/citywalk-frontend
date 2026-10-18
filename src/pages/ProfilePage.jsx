@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Navbar from '../components/Navbar'
 import Skeleton from '../components/ui/Skeleton'
+import EmptyState from '../components/ui/EmptyState'
 import { useAuth } from '../context/AuthContext'
 
 export default function ProfilePage() {
@@ -90,7 +91,7 @@ export default function ProfilePage() {
         <aside className="w-72 bg-gray-900/60 backdrop-blur-xl border-r border-white/10 flex flex-col flex-shrink-0">
           {/* 用户信息 */}
           <div className="p-6 border-b border-white/10">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-indigo-500 flex items-center justify-center text-3xl font-bold text-white mb-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-slate-500 flex items-center justify-center text-3xl font-bold text-white mb-4">
               {nickname.charAt(0).toUpperCase()}
             </div>
             <h2 className="text-lg font-semibold text-white">{nickname}</h2>
@@ -149,7 +150,7 @@ export default function ProfilePage() {
           <div className="p-3 border-t border-white/10">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-red-400 transition"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-red-300/80 transition"
             >
               <span>🚪</span>
               <span>退出登录</span>
@@ -163,7 +164,7 @@ export default function ProfilePage() {
             {/* 我的计划 */}
             {activeTab === 'plans' && (
               <>
-                <h1 className="text-2xl font-bold mb-6">我的计划</h1>
+                <h1 className="heading-2xl mb-6">我的计划</h1>
 
                 {loading ? (
                   <div className="space-y-4">
@@ -175,16 +176,21 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 ) : plans.length === 0 ? (
-                  <div className="text-center py-20 text-gray-500">
-                    <p className="text-lg mb-2 text-gray-300">还没有保存任何计划</p>
-                    <p className="text-sm text-gray-400">去首页规划你的第一条路线吧</p>
-                  </div>
+                  <EmptyState
+                    title="还没有保存任何计划"
+                    description="去首页选个城市，规划你的第一条路线"
+                    action={
+                      <button onClick={() => navigate('/')} className="btn btn-primary px-5 py-2 text-sm">
+                        去规划
+                      </button>
+                    }
+                  />
                 ) : (
                   <div className="space-y-4">
                     {plans.map(plan => (
                       <div
                         key={plan.id}
-                        className="card overflow-hidden hover:border-white/30 transition"
+                        className="card card-hover overflow-hidden hover:border-white/30"
                       >
                         <div className="p-5 flex justify-between items-start">
                           <div className="flex-1 min-w-0">
@@ -210,25 +216,25 @@ export default function ProfilePage() {
                           <div className="flex gap-2 ml-4 flex-shrink-0">
                             <button
                               onClick={() => window.open('/print/' + plan.id, '_blank')}
-                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
+                              className="btn btn-ghost px-3 py-1.5 text-xs"
                             >
                               存到手机
                             </button>
                             <button
                               onClick={() => handleShare(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
+                              className="btn btn-ghost px-3 py-1.5 text-xs"
                             >
                               分享
                             </button>
                             <button
                               onClick={() => handleExpand(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
+                              className="btn btn-ghost px-3 py-1.5 text-xs"
                             >
                               {expandedId === plan.id ? '收起' : '查看'}
                             </button>
                             <button
                               onClick={() => handleDelete(plan.id)}
-                              className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 rounded-lg transition"
+                              className="btn btn-ghost px-3 py-1.5 text-xs hover:bg-red-500/15 hover:text-red-300"
                             >
                               删除
                             </button>
@@ -280,17 +286,17 @@ export default function ProfilePage() {
             )}
 
             {activeTab === 'collections' && (
-              <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2 text-gray-300">收藏功能开发中</p>
-                <p className="text-sm text-gray-400">敬请期待</p>
-              </div>
+              <EmptyState
+                title="收藏功能开发中"
+                description="很快就能在这里看到你收藏的路线了"
+              />
             )}
 
             {activeTab === 'posts' && (
-              <div className="text-center py-20 text-gray-500">
-                <p className="text-lg mb-2 text-gray-300">社区功能开发中</p>
-                <p className="text-sm text-gray-400">敬请期待</p>
-              </div>
+              <EmptyState
+                title="社区功能开发中"
+                description="很快就能在这里看到你发布的帖子了"
+              />
             )}
           </div>
         </main>

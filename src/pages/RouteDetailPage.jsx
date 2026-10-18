@@ -179,12 +179,12 @@ export default function RouteDetailPage() {
         <div className="w-1/2 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-white/10 flex-shrink-0">
             <div className="flex justify-between items-start mb-3">
-              <h1 className="text-2xl font-bold text-white flex-1 pr-4">{route.title}</h1>
+              <h1 className="heading-2xl flex-1 pr-4">{route.title}</h1>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className={`px-4 py-2 rounded text-sm font-semibold transition flex-shrink-0 ${
-                  saving ? 'bg-white/10 text-gray-500' : 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+                className={`btn px-4 py-2 text-sm flex-shrink-0 ${
+                  saving ? 'bg-white/10 text-gray-500' : 'btn-primary'
                 }`}
               >
                 {saving ? '保存中...' : '收藏'}
@@ -214,7 +214,7 @@ export default function RouteDetailPage() {
                   <div
                     onClick={() => setActiveNodeIndex(idx)}
                     className={`p-6 border-b border-white/10 cursor-pointer transition ${
-                      isActive ? 'bg-gray-900/60 border-l-4 border-l-cyan-400' : 'hover:bg-white/5 border-l-4 border-l-transparent'
+                      isActive ? 'bg-gray-900/60 border-l-4 border-l-cyan-400' : 'hover:bg-white/5 hover:border-l-cyan-400/40 border-l-4 border-l-transparent'
                     }`}
                   >
                     <div className="flex items-start gap-3 mb-3">
@@ -269,7 +269,7 @@ export default function RouteDetailPage() {
                       {node.avoidTip && (
                         <div className="flex gap-2">
                           <span className="text-gray-500 w-16 flex-shrink-0">⚠️ 避坑</span>
-                          <span className="text-yellow-200/90">{node.avoidTip}</span>
+                          <span className="text-gray-300">{node.avoidTip}</span>
                         </div>
                       )}
                       {node.restaurant && (
@@ -292,7 +292,7 @@ export default function RouteDetailPage() {
                       <span className="text-xs text-cyan-400">↓ {summarizeSegment(seg)}</span>
                       <button
                         onClick={() => window.open(buildNavUrl(node, nextNode), '_blank', 'noopener,noreferrer')}
-                        className="text-xs px-2 py-1 rounded-lg border border-white/10 text-gray-300 hover:text-white hover:border-cyan-500 transition"
+                        className="btn btn-ghost text-xs px-2 py-1 hover:border-cyan-500"
                       >
                         导航
                       </button>
@@ -326,13 +326,13 @@ export default function RouteDetailPage() {
                       <div className="flex gap-2 flex-shrink-0">
                         <button
                           onClick={() => handleReplaceTicket(t.id)}
-                          className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-white/10 rounded-lg transition"
+                          className="btn btn-ghost px-3 py-1.5 text-xs"
                         >
                           换
                         </button>
                         <button
                           onClick={() => handleDeleteTicket(t.id)}
-                          className="px-3 py-1.5 text-xs bg-white/5 border border-white/10 hover:bg-red-500/15 hover:text-red-300 rounded-lg transition"
+                          className="btn btn-ghost px-3 py-1.5 text-xs hover:bg-red-500/15 hover:text-red-300"
                         >
                           删
                         </button>
@@ -349,9 +349,9 @@ export default function RouteDetailPage() {
                 <button
                   onClick={handleGo12306}
                   disabled={!route.tickets?.length}
-                  className={`px-4 py-2 rounded text-sm font-semibold transition ${
+                  className={`btn px-4 py-2 text-sm ${
                     route.tickets?.length
-                      ? 'bg-cyan-500 hover:bg-cyan-400 text-gray-950'
+                      ? 'btn-primary'
                       : 'bg-white/5 text-gray-500 cursor-not-allowed'
                   }`}
                 >
@@ -359,13 +359,13 @@ export default function RouteDetailPage() {
                 </button>
                 <button
                   onClick={() => window.open('/print/' + route.id, '_blank')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
+                  className="btn btn-ghost px-4 py-2 text-sm text-white"
                 >
                   存到手机
                 </button>
                 <button
                   onClick={handleShare}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/5 border border-white/10 hover:bg-white/10 text-white transition"
+                  className="btn btn-ghost px-4 py-2 text-sm text-white"
                 >
                   分享
                 </button>
