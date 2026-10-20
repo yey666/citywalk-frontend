@@ -37,6 +37,11 @@ const KEYWORD_MAP = {
   '夜景': ['夜', '夜景', '灯光'],
 }
 
+// ==================== AI 生成路线配置 ====================
+const AI_THEMES = ['出片', '美食', '历史', '文艺']
+const AI_DURATIONS = [2, 3, 4, 6, 8]
+const AI_DIFFICULTIES = ['轻松', '中等', '暴走']
+
 // ==================== 可拖拽项组件 ====================
 function SortableStop({ stop, index, onRemove, highlighted }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -221,6 +226,14 @@ export default function WorkbenchPage() {
   const [highlightedIds, setHighlightedIds] = useState(new Set())
   const [previewPois, setPreviewPois] = useState([])
   const [previewRoute, setPreviewRoute] = useState(null)
+
+  // AI 生成路线
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGenerated, setAiGenerated] = useState(false)
+  const [aiTheme, setAiTheme] = useState('出片')
+  const [aiDuration, setAiDuration] = useState(4)
+  const [aiDifficulty, setAiDifficulty] = useState('轻松')
 
   // 查票
   const [ticketFrom, setTicketFrom] = useState('')
@@ -434,6 +447,7 @@ export default function WorkbenchPage() {
       setOriginalDistance(null)
       setOptimizedDistance(null)
       setSavedDistance(null)
+      setAiGenerated(false)
     }
   }
 
@@ -454,6 +468,7 @@ export default function WorkbenchPage() {
         theme: '混合',
         duration: Math.ceil(totalMinutes / 60),
         difficulty: '轻松',
+        aiGenerated: aiGenerated ? 1 : 0,
         routeId: savedRouteId ? Number(savedRouteId) : null,
         nodes: planStops.map((stop, idx) => ({
           poiId: stop.poiId,
@@ -599,6 +614,45 @@ export default function WorkbenchPage() {
       console.error('优化失败：', err)
       showToast('优化失败：' + (err.response?.data?.message || err.message), 3000)
       setOptimizing(false)
+    }
+  }
+
+  const handleAiGenerate = async () => {
+    setAiModalOpen(false)
+    setAiGenerating(true)
+    setOriginalDistance(null)
+    setOptimizedDistance(null)
+    setSavedDistance(null)
+    try {
+      const res = await axios.post('/api/rag/generate-route', {
+        cityId: Number(cityId),
+        duration: aiDuration,
+        theme: aiTheme,
+        difficulty: aiDifficulty,
+      })
+
+      const nodes = (res.data?.nodes || []).map(node => ({
+        poiId: node.poiId,
+        name: node.poiName,
+        lng: node.lng,
+        lat: node.lat,
+        stayDuration: node.stayDuration,
+        tip: node.tip || '',
+      }))
+
+      if (nodes.length === 0) {
+        showToast('AI 没有生成有效路线，请重试', 2500)
+        return
+      }
+
+      setPlanStops(nodes)
+      setAiGenerated(true)
+      showToast(`AI 已生成「${res.data?.title || '专属路线'}」，可继续微调`, 2500)
+    } catch (err) {
+      console.error('AI 生成失败：', err)
+      showToast('AI 生成失败：' + (err.response?.data?.message || err.message), 3000)
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -968,7 +1022,20 @@ export default function WorkbenchPage() {
                 )}
 
                 <div className="overflow-y-auto p-4 flex-1">
-                  {loading ? (
+                  {aiGenerating ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-cyan-300 text-center animate-pulse">
+                        AI 正在检索景点并编排路线...
+                      </p>
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-lg bg-white/5 border border-white/10 p-3 space-y-2">
+                          <Skeleton className="h-4 w-2/3" />
+                          <Skeleton className="h-3 w-1/2" />
+                          <Skeleton className="h-3 w-1/3" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : loading ? (
                     <div className="space-y-2">
                       {Array.from({ length: 4 }).map((_, i) => (
                         <div key={i} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
@@ -996,7 +1063,7 @@ export default function WorkbenchPage() {
                         strategy={verticalListSortingStrategy}
                       >
                         <PlanDropZone>
-                          <div className="space-y-2">
+                          <div className="space-y-2 animate-fade-in">
                             {planStops.map((stop, idx) => (
                               <SortableStop
                                 key={stop.poiId}
@@ -1013,8 +1080,18 @@ export default function WorkbenchPage() {
                   )}
                 </div>
 
-                {planStops.length > 0 && (
-                  <div className="p-4 border-t border-white/10 flex gap-2 flex-shrink-0">
+                <div className="p-4 border-t border-white/10 flex-shrink-0">
+                  <button
+                    onClick={() => setAiModalOpen(true)}
+                    disabled={aiGenerating}
+                    className="btn btn-tint w-full py-2.5 text-sm"
+                  >
+                    ✨ AI 生成路线
+                  </button>
+                </div>
+
+                {planStops.length > 0 && !aiGenerating && (
+                  <div className="px-4 pb-4 flex gap-2 flex-shrink-0">
                     <button
                       onClick={handleClearPlan}
                       className="btn btn-ghost flex-1 py-2 text-sm text-white"
@@ -1203,6 +1280,94 @@ export default function WorkbenchPage() {
             )}
           </div>
         </div>
+
+        {aiModalOpen && (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setAiModalOpen(false)}
+          >
+            <div
+              className="w-[400px] max-w-[90vw] rounded-2xl border border-white/10 bg-[#111827] p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{ animation: 'fadeInOpacity 0.25s ease-out both' }}
+            >
+              <h3 className="text-lg font-semibold text-white mb-1">✨ AI 生成路线</h3>
+              <p className="text-xs text-gray-400 mb-5">告诉 AI 你的偏好，它会从「{city?.name || '当前城市'}」的 POI 里挑出 3~5 个点，编排成一条路线。</p>
+
+              <div className="mb-4">
+                <div className="text-xs text-gray-400 mb-2">主题</div>
+                <div className="flex gap-2 flex-wrap">
+                  {AI_THEMES.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setAiTheme(t)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition ${
+                        aiTheme === t
+                          ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/30'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="text-xs text-gray-400 mb-2">时长</div>
+                <div className="flex gap-2 flex-wrap">
+                  {AI_DURATIONS.map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setAiDuration(d)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition ${
+                        aiDuration === d
+                          ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/30'
+                      }`}
+                    >
+                      {d} 小时
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="text-xs text-gray-400 mb-2">体力</div>
+                <div className="flex gap-2 flex-wrap">
+                  {AI_DIFFICULTIES.map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setAiDifficulty(d)}
+                      className={`px-3 py-1.5 text-sm rounded-lg border transition ${
+                        aiDifficulty === d
+                          ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300'
+                          : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/30'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAiModalOpen(false)}
+                  className="btn btn-ghost flex-1 py-2 text-sm"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleAiGenerate}
+                  className="btn btn-primary flex-1 py-2 text-sm"
+                >
+                  生成路线
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {toast && (
           <div
