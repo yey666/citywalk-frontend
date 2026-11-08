@@ -1478,20 +1478,21 @@ export default function WorkbenchPage() {
         </div>
       )}
 
-      {/* AI 智能导游悬浮按钮 */}
-      <button
-        onClick={() => setGuideOpen(o => !o)}
-        title="AI 智能导游"
-        className="absolute right-8 bottom-8 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-xl flex items-center justify-center text-2xl hover:scale-105 hover:shadow-2xl transition"
-      >
-        🧭
-      </button>
+      {/* AI 智能导游悬浮按钮（关闭窗口后显示） */}
+      {!guideOpen && (
+        <button
+          onClick={() => setGuideOpen(true)}
+          title="AI 智能导游"
+          className="fixed left-8 bottom-8 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-xl flex items-center justify-center text-2xl hover:scale-105 hover:shadow-2xl transition"
+        >
+          🧭
+        </button>
+      )}
 
-      {/* AI 智能导游对话窗 */}
+      {/* AI 智能导游对话窗（左下角独立悬浮窗） */}
       {guideOpen && (
         <div
-          className="absolute right-8 bottom-28 z-50 w-[380px] max-w-[90vw] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col animate-fade-in"
-          style={{ height: '500px', maxHeight: 'calc(100vh - 160px)' }}
+          className="fixed bottom-8 left-8 z-50 w-[360px] max-w-[90vw] h-[500px] max-h-[calc(100vh-3rem)] bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col animate-fade-in"
         >
           <div className="p-4 border-b border-gray-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
