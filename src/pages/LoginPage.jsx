@@ -39,106 +39,101 @@ export default function LoginPage() {
     }
   }
 
+  const inputCls = 'w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition'
+
   return (
     <div className="h-screen w-screen relative overflow-hidden">
-      {/* 背景图：缓慢放大，让城市“活”起来 */}
+      {/* 背景图：缓慢放大 + 高斯模糊，让背景更柔和 */}
       <div
-        className="absolute inset-0 bg-cover bg-center animate-slow-zoom"
+        className="absolute -inset-4 bg-cover bg-center animate-slow-zoom blur-sm"
         style={{ backgroundImage: 'url(/login-bg1.jpg)' }}
       />
+      {/* 轻微暗化，让毛玻璃卡片更突出 */}
+      <div className="absolute inset-0 bg-slate-900/40" />
 
-      {/* 遮罩：左侧轻，右侧重，让卡片落在暗的一侧 */}
-      <div className="absolute inset-0 bg-gradient-to-r from-gray-950/20 via-slate-900/60 to-gray-950/95" />
-      {/* 底部渐隐，让城市“从底部升起” */}
-      <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-slate-900/80 to-transparent" />
+      {/* 居中一体化毛玻璃卡片 */}
+      <div className="relative h-full flex items-center justify-center px-6">
+        <div className="w-full max-w-2xl h-[420px] bg-slate-900/40 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden flex">
 
-      {/* 内容 */}
-      <div className="relative h-full flex items-center justify-end px-6 md:px-24">
-        <div className="w-full max-w-md">
-          {/* 标题 */}
-          <div className="mb-10">
-            <h1 className="text-6xl font-bold text-white tracking-tight">
-              Citywalk
-            </h1>
-            <p className="text-gray-300 text-sm mt-3 tracking-wide">
-              从世界各地出发
-            </p>
+          {/* 左侧：品牌区 */}
+          <div className="w-1/2 flex flex-col justify-end p-12">
+            <h1 className="text-5xl font-black text-white tracking-tight">Citywalk</h1>
+            <p className="text-slate-300 mt-4 text-sm tracking-wide">从世界各地出发</p>
           </div>
 
-          {/* 卡片 */}
-          <div className="bg-gray-900/60 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl p-8">
+          {/* 右侧：表单区 */}
+          <div className="w-1/2 flex flex-col justify-center p-12 gap-6">
             {/* Tab */}
-            <div className="flex mb-8 border-b border-white/10">
+            <div className="flex border-b border-white/10">
               <button
                 onClick={() => { setIsRegister(false); setError('') }}
-                className={`flex-1 pb-3 text-sm font-medium transition relative ${
-                  !isRegister ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                className={`flex-1 pb-3 text-sm transition relative ${
+                  !isRegister ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 登录
                 {!isRegister && (
-                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
                 )}
               </button>
               <button
                 onClick={() => { setIsRegister(true); setError('') }}
-                className={`flex-1 pb-3 text-sm font-medium transition relative ${
-                  isRegister ? 'text-white' : 'text-gray-500 hover:text-gray-300'
+                className={`flex-1 pb-3 text-sm transition relative ${
+                  isRegister ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 注册
                 {isRegister && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
                 )}
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
-                <label className="block text-xs text-gray-400 mb-2 tracking-wide">
+                <label className="block text-xs text-slate-200 mb-2 tracking-wide">
                   用户名
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  className="input px-4 py-3"
+                  className={inputCls}
                   placeholder="输入用户名"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-gray-400 mb-2 tracking-wide">
+                <label className="block text-xs text-slate-200 mb-2 tracking-wide">
                   密码
                 </label>
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="input px-4 py-3"
+                  className={inputCls}
                   placeholder="输入密码"
                   required
                 />
               </div>
 
               {error && (
-                <div className="bg-red-900/30 border border-red-700/40 text-red-300 text-sm px-4 py-2 rounded-lg">
+                <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-2 rounded-lg">
                   {error}
                 </div>
               )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary relative w-full py-3 shadow-lg shadow-cyan-500/20 overflow-hidden disabled:bg-white/10 disabled:text-gray-500 disabled:opacity-100"
-            >
-              <span className="absolute bottom-0 left-0 right-0 h-px bg-cyan-300/40" />
-              {loading ? '处理中...' : (isRegister ? '创建账号' : '登录')}
-            </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition shadow-lg shadow-blue-500/30 disabled:bg-white/10 disabled:text-slate-500 disabled:cursor-not-allowed"
+              >
+                {loading ? '处理中...' : (isRegister ? '创建账号' : '登录')}
+              </button>
             </form>
 
-            <p className="text-center text-xs text-gray-500 mt-6">
+            <p className="text-center text-xs text-slate-400">
               {isRegister ? '注册后自动登录' : '登录后开始规划你的旅行'}
             </p>
           </div>
@@ -146,10 +141,10 @@ export default function LoginPage() {
       </div>
 
       {/* 底部目的地 */}
-     <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-2 text-xs tracking-widest">
-     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400/80" />
-      <span className="text-gray-500">佛山 · 成都 · 西安 · 杭州 · 厦门 · 苏州</span>
-    </div>
+      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-2 text-xs tracking-widest">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+        <span className="text-slate-400 drop-shadow-md">佛山 · 成都 · 西安 · 杭州 · 厦门 · 苏州</span>
+      </div>
 
       {/* 登录过渡层 */}
       {transition && (
