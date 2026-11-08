@@ -296,6 +296,7 @@ export default function WorkbenchPage() {
   const [guideMessages, setGuideMessages] = useState([])
   const [guideInput, setGuideInput] = useState('')
   const [guideStreaming, setGuideStreaming] = useState(false)
+  const [guidePois, setGuidePois] = useState([])
   const guideAbortRef = useRef(null)
   const guideScrollRef = useRef(null)
 
@@ -704,13 +705,35 @@ export default function WorkbenchPage() {
     const text = guideInput.trim()
     if (!text || guideStreaming) return
 
+    // 打包多轮上下文：历史消息 + 当前提问（过滤掉空的占位消息）
+    const history = guideMessages
+      .filter(m => m.content && m.content.trim())
+      .map(m => ({ role: m.role, content: m.content }))
+    const payload = {
+      messages: [...history, { role: 'user', content: text }],
+      cityId: cityId || null,
+      cityName: city?.name || '',
+    }
+
     setGuideMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }])
     setGuideInput('')
     setGuideStreaming(true)
+    setGuidePois([])
 
     const token = localStorage.getItem('token')
     const controller = new AbortController()
     guideAbortRef.current = controller
+
+    const appendGuideChunk = (chunk) => {
+      setGuideMessages(prev => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant') {
+          next[next.length - 1] = { ...last, content: last.content + chunk }
+        }
+        return next
+      })
+    }
 
     try {
       const res = await fetch('/api/guide/chat', {
@@ -720,7 +743,7 @@ export default function WorkbenchPage() {
           Accept: 'text/event-stream',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text, cityName: city?.name || '' }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       })
 
@@ -741,16 +764,20 @@ export default function WorkbenchPage() {
         while ((idx = buffer.indexOf('\n\n')) !== -1) {
           const rawEvent = buffer.slice(0, idx)
           buffer = buffer.slice(idx + 2)
-          const chunk = parseSseData(rawEvent)
-          if (chunk) {
-            setGuideMessages(prev => {
-              const next = [...prev]
-              const last = next[next.length - 1]
-              if (last && last.role === 'assistant') {
-                next[next.length - 1] = { ...last, content: last.content + chunk }
-              }
-              return next
-            })
+          const data = parseSseData(rawEvent)
+          if (!data) continue
+
+          // 解析 JSON 事件：text 追加文本，pois 记录 POI 打点数据
+          try {
+            const evt = JSON.parse(data)
+            if (evt.type === 'text' && evt.content) {
+              appendGuideChunk(evt.content)
+            } else if (evt.type === 'pois' && Array.isArray(evt.pois) && evt.pois.length > 0) {
+              setGuidePois(evt.pois)
+            }
+          } catch {
+            // 兼容旧版纯文本 SSE：直接把整段当文本追加
+            appendGuideChunk(data)
           }
         }
       }
@@ -802,6 +829,7 @@ export default function WorkbenchPage() {
           planStops={planStops}
           previewRoute={previewRoute}
           previewPois={previewPois}
+          guidePois={guidePois}
           onPoiClick={(poi) => handleAddToPlan(poi)}
         />
       </div>

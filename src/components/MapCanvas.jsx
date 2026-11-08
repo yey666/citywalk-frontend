@@ -6,11 +6,13 @@ export default function MapCanvas({
   planStops,
   previewRoute,
   previewPois,
+  guidePois,
   onPoiClick,
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  const guideMarkersRef = useRef([])
   const infoWindowRef = useRef(null)
 
   // 初始化地图
@@ -227,6 +229,54 @@ export default function MapCanvas({
       }
     }
   }, [allPois, planStops, previewPois, previewRoute, onPoiClick])
+
+  // ========== 第 4 段：AI 导游查到的 POI（红色定位标 + 移动中心） ==========
+  useEffect(() => {
+    if (!mapRef.current || !window.AMap) return
+
+    guideMarkersRef.current.forEach(m => m.setMap(null))
+    guideMarkersRef.current = []
+
+    if (!guidePois || guidePois.length === 0) return
+
+    guidePois.forEach((poi, idx) => {
+      if (poi.lng == null || poi.lat == null) return
+
+      const markerContent = `
+        <div style="
+          width: 30px; height: 38px;
+          position: relative;
+          display: flex; align-items: center; justify-content: center;
+          background: #f43f5e;
+          border: 3px solid white;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          box-shadow: 0 2px 10px rgba(244, 63, 94, 0.6);
+          color: white;
+          font-weight: bold;
+          font-size: 13px;
+        ">
+          <span style="transform: rotate(45deg);">${idx + 1}</span>
+        </div>
+      `
+
+      const marker = new window.AMap.Marker({
+        position: [poi.lng, poi.lat],
+        content: markerContent,
+        offset: new window.AMap.Pixel(-14, -34),
+        title: poi.name,
+      })
+
+      marker.setMap(mapRef.current)
+      guideMarkersRef.current.push(marker)
+    })
+
+    // 中心点移动到第一个 POI
+    const first = guidePois.find(p => p.lng != null && p.lat != null)
+    if (first) {
+      mapRef.current.setCenter([first.lng, first.lat])
+    }
+  }, [guidePois])
 
   return <div ref={containerRef} className="w-full h-full" />
 }
