@@ -39,124 +39,91 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls = 'w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition'
+  const inputCls =
+    'w-full bg-white/40 backdrop-blur-md border border-white/60 rounded-full py-4 px-6 text-[15px] text-gray-800 placeholder-[#A39A8A] focus:outline-none focus:bg-white/90 focus:shadow-lg transition'
 
   return (
-    <div className="h-screen w-screen relative overflow-hidden">
-      {/* 背景图：缓慢放大 + 高斯模糊，让背景更柔和 */}
-      <div
-        className="absolute -inset-4 bg-cover bg-center animate-slow-zoom blur-sm"
-        style={{ backgroundImage: 'url(/login-bg1.jpg)' }}
-      />
-      {/* 轻微暗化，让毛玻璃卡片更突出 */}
-      <div className="absolute inset-0 bg-slate-900/40" />
+    <div className="relative min-h-screen w-full bg-[url('/login_bg_v2.png')] bg-cover bg-center bg-no-repeat flex justify-end items-center pr-[12%] px-6">
+      {/* 右侧表单：极简杂志风 */}
+      <div className="w-[320px]">
+        {/* Logo：手写体 */}
+        <h1 className="font-hand text-6xl text-[#3E3A33] -rotate-2 drop-shadow-md leading-none">
+          Citywalk
+        </h1>
 
-      {/* 居中一体化毛玻璃卡片 */}
-      <div className="relative h-full flex items-center justify-center px-6">
-        <div className="w-full max-w-2xl h-[420px] bg-slate-900/40 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl overflow-hidden flex">
+        {/* 主文案：明朝体 */}
+        <p className="mt-5 font-serif font-bold text-2xl leading-relaxed text-[#3E3A33]">
+          明天在脚下
+          <br />
+          世界也是。
+        </p>
 
-          {/* 左侧：品牌区 */}
-          <div className="w-1/2 flex flex-col justify-end p-12">
-            <h1 className="text-5xl font-black text-white tracking-tight">Citywalk</h1>
-            <p className="text-slate-300 mt-4 text-sm tracking-wide">从世界各地出发</p>
+        {/* 点缀文案 */}
+        <p className="mt-2 mb-10 text-xs uppercase tracking-widest text-[#8A8478]">
+          TASHI DELEK · 扎西德勒
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className={inputCls}
+              placeholder="账号 / Email"
+              required
+            />
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={inputCls}
+              placeholder="密码 / Password"
+              required
+            />
+
+            {error && (
+              <div className="px-6 text-xs text-red-500/90">{error}</div>
+            )}
           </div>
 
-          {/* 右侧：表单区 */}
-          <div className="w-1/2 flex flex-col justify-center p-12 gap-6">
-            {/* Tab */}
-            <div className="flex border-b border-white/10">
-              <button
-                onClick={() => { setIsRegister(false); setError('') }}
-                className={`flex-1 pb-3 text-sm transition relative ${
-                  !isRegister ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                登录
-                {!isRegister && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
-                )}
-              </button>
-              <button
-                onClick={() => { setIsRegister(true); setError('') }}
-                className={`flex-1 pb-3 text-sm transition relative ${
-                  isRegister ? 'text-white font-semibold' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                注册
-                {isRegister && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full" />
-                )}
-              </button>
-            </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 mt-6 bg-[#2C2C2C] text-[#FDFBF7] text-sm font-medium tracking-widest rounded-full shadow-lg hover:bg-black hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {loading ? '处理中...' : isRegister ? '创建账号 →' : '出发 →'}
+          </button>
+        </form>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-              <div>
-                <label className="block text-xs text-slate-200 mb-2 tracking-wide">
-                  用户名
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  className={inputCls}
-                  placeholder="输入用户名"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-200 mb-2 tracking-wide">
-                  密码
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className={inputCls}
-                  placeholder="输入密码"
-                  required
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-2 rounded-lg">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition shadow-lg shadow-blue-500/30 disabled:bg-white/10 disabled:text-slate-500 disabled:cursor-not-allowed"
-              >
-                {loading ? '处理中...' : (isRegister ? '创建账号' : '登录')}
-              </button>
-            </form>
-
-            <p className="text-center text-xs text-slate-400">
-              {isRegister ? '注册后自动登录' : '登录后开始规划你的旅行'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 底部目的地 */}
-      <div className="absolute bottom-8 left-0 right-0 flex items-center justify-center gap-2 text-xs tracking-widest">
-        <span className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
-        <span className="text-slate-400 drop-shadow-md">佛山 · 成都 · 西安 · 杭州 · 厦门 · 苏州</span>
+        {/* 登录 / 注册切换（保留原逻辑） */}
+        <p className="mt-5 text-center text-xs text-[#8A8478]">
+          {isRegister ? '已有账号？' : '还没有账号？'}
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(!isRegister)
+              setError('')
+            }}
+            className="ml-1 text-[#3E3A33] font-medium hover:underline"
+          >
+            {isRegister ? '去登录' : '去注册'}
+          </button>
+        </p>
       </div>
 
       {/* 登录过渡层 */}
       {transition && (
-        <div className="absolute inset-0 z-[60] bg-surface flex items-center justify-center animate-fade-out-800">
+        <div className="absolute inset-0 z-[60] bg-white/90 backdrop-blur flex items-center justify-center animate-fade-out-800">
           <div className="text-center">
-            <p className="text-white/90 text-2xl tracking-[0.3em]">
+            <p className="text-[#3E3A33]/90 text-2xl tracking-[0.3em]">
               世界之大
             </p>
-            <p className="text-white/60 text-2xl tracking-[0.3em] mt-3">
+            <p className="text-[#3E3A33]/60 text-2xl tracking-[0.3em] mt-3">
               为何我们相遇
             </p>
-            <div className="mt-6 mx-auto w-12 h-px bg-cyan-400/60" />
+            <div className="mt-6 mx-auto w-12 h-px bg-[#3E3A33]/40" />
           </div>
         </div>
       )}

@@ -3,7 +3,6 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { PlanProvider } from './context/PlanContext'
 import GlobePage from './pages/GlobePage'
 import CityDetailPage from './pages/CityDetailPage'
-import WorkbenchPage from './pages/WorkbenchPage'
 import RouteDetailPage from './pages/RouteDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import PrintPage from './pages/PrintPage'
@@ -28,7 +27,6 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<RequireAuth><GlobePage /></RequireAuth>} />
           <Route path="/city/:id" element={<RequireAuth><CityDetailPage /></RequireAuth>} />
-          <Route path="/plan/:id" element={<RequireAuth><WorkbenchPage /></RequireAuth>} />
           <Route path="/route/:id" element={<RequireAuth><RouteDetailPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/community" element={<RequireAuth><CommunityPage /></RequireAuth>} />

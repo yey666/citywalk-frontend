@@ -119,7 +119,7 @@ export default function RouteDetailPage() {
       showToast('删除失败：' + (err.response?.data?.message || err.message), 3000)
       return
     }
-    navigate(`/plan/${route.cityId}?tab=ticket`)
+    navigate('/')
   }
 
   if (loading) {

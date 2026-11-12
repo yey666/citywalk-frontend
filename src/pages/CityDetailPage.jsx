@@ -5,6 +5,7 @@ import axios from 'axios'
 import Skeleton from '../components/ui/Skeleton'
 import { usePlan } from '../context/PlanContext'
 import { useAuth } from '../context/AuthContext'
+import { useTripStore } from '../store/tripStore'
 
 // ============ 抽屉里的小节（浅色） ============
 function Section({ icon, title, children }) {
@@ -79,6 +80,7 @@ export default function CityDetailPage() {
   const navigate = useNavigate()
   const { loadCity, markedIds, toggleMark } = usePlan()
   const { logout } = useAuth()
+  const addCity = useTripStore((s) => s.addCity)
   const nickname = localStorage.getItem('nickname') || '用户'
 
   const [pois, setPois] = useState([])
@@ -141,6 +143,12 @@ export default function CityDetailPage() {
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
+  }
+
+  // 加入行程并回到首页（首页地图 + 右侧工作台抽屉已同屏）
+  const goPlan = () => {
+    addCity(cityInfo || { id: cityId, name: `城市 ${cityId}` })
+    navigate('/')
   }
 
   return (
@@ -359,7 +367,7 @@ export default function CityDetailPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            navigate(`/plan/${cityId}?from=route&routeId=${route.id}`)
+                            goPlan()
                           }}
                           className="w-full py-2 text-xs rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition"
                         >
@@ -382,7 +390,7 @@ export default function CityDetailPage() {
           已标记 <span className="text-blue-600 font-semibold">{markedIds.size}</span> 个地方
         </span>
         <button
-          onClick={() => navigate(`/plan/${cityId}`)}
+          onClick={goPlan}
           disabled={markedIds.size === 0}
           className={`px-6 py-2 rounded-full text-sm font-medium transition ${
             markedIds.size === 0

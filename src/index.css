@@ -17,6 +17,10 @@
   --color-brand-500: #06b6d4;
   --color-brand-600: #0891b2;
   --color-brand-700: #0e7490;
+
+  /* 登录页字体：手写体 + 明朝体 */
+  --font-hand: "Caveat", "Segoe Script", cursive;
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", "STSong", serif;
 }
 
 /* ============================================================
@@ -169,3 +173,50 @@
 .animate-fade-out { animation: fadeOut 0.3s ease-in both; }
 .animate-slide-in-right { animation: slideInRight 0.3s ease-out both; }
 .animate-slide-out-right { animation: slideOutRight 0.3s ease-in both; }
+
+/* ============================================================
+   首页城市 Marker：蓝色发光圆点 + 呼吸扩散动效（高德自定义 content）
+   ============================================================ */
+.city-marker {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+.city-marker-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #3b82f6;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 2px 6px rgba(59, 130, 246, 0.5);
+}
+.city-marker-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.5);
+  animation: city-marker-pulse 2s ease-out infinite;
+}
+@keyframes city-marker-pulse {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* 首页城市 Marker 的悬浮轻量 Tooltip */
+.city-tooltip {
+  position: absolute;
+  z-index: 60;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #44403c;
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  display: none;
+}
