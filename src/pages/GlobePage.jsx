@@ -60,31 +60,66 @@ const MUTED_MARKER_HTML = `
   "></div>
 `
 
-// 已加入行程：带序号的橙色地标图钉（带尾巴）
-function orangePinHtml(num) {
+// 已加入行程：序号图钉 + 城市名，合并为一个整体热区（透明内边距放大命中区）
+function cityPinMarkerHtml(num, name) {
   return `
-    <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+    <div style="
+      width: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 0 14px;
+      background: transparent;
+      cursor: pointer;
+    ">
+      <div style="display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+        <div style="
+          width: 30px; height: 30px;
+          box-sizing: border-box;
+          border-radius: 50%;
+          background: #F97316;
+          border: 3px solid #fff;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          display: flex; align-items: center; justify-content: center;
+          color: #fff; font-weight: 700; font-size: 14px;
+          font-family: system-ui, sans-serif; line-height: 1;
+        ">${num}</div>
+        <div style="
+          width: 0; height: 0;
+          border-left: 7px solid transparent;
+          border-right: 7px solid transparent;
+          border-top: 10px solid #F97316;
+        "></div>
+      </div>
       <div style="
-        width: 30px; height: 30px;
-        box-sizing: border-box;
-        border-radius: 50%;
-        background: #F97316;
-        border: 3px solid #fff;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        display: flex; align-items: center; justify-content: center;
-        color: #fff; font-weight: 700; font-size: 14px;
-        font-family: system-ui, sans-serif; line-height: 1;
-      ">${num}</div>
-      <div style="
-        width: 0; height: 0;
-        border-left: 7px solid transparent;
-        border-right: 7px solid transparent;
-        border-top: 10px solid #F97316;
-        margin-top: -2px;
-      "></div>
+        margin-top: 4px;
+        pointer-events: none;
+        font-size: 13px; font-weight: 700;
+        color: #333333;
+        text-shadow: 0 1px 2px #ffffff, 0 0 4px #ffffff;
+        white-space: nowrap; line-height: 1.2;
+      ">${name}</div>
     </div>
   `
 }
+
+// 扩大 Hover 热区：用透明容器包住可见图钉，鼠标落在透明区也能触发 Hover
+// anchor: 'center'（小圆点居中） | 'bottom'（图钉尖端贴在容器底部中心）
+function hitZone(innerHtml, w, h, anchor = 'center') {
+  if (anchor === 'bottom') {
+    return `
+      <div style="position: relative; width: ${w}px; height: ${h}px; background: transparent; cursor: pointer;">
+        <div style="position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);">${innerHtml}</div>
+      </div>
+    `
+  }
+  return `
+    <div style="width: ${w}px; height: ${h}px; display: flex; align-items: center; justify-content: center; background: transparent; cursor: pointer;">${innerHtml}</div>
+  `
+}
+
+// Hover 卡片景点缓存：{ [城市名]: { tags: string[], cover: string } }
+const poiCache = {}
 
 // 直辖市：区级结果直接用直辖市本身作为前缀
 const MUNICIPALITIES = { '11': '北京市', '12': '天津市', '31': '上海市', '50': '重庆市' }
@@ -136,6 +171,7 @@ export default function GlobePage() {
   const [hoverPos, setHoverPos] = useState(null)
   const [hoverTags, setHoverTags] = useState([])
   const [hoverTagsLoading, setHoverTagsLoading] = useState(false)
+  const [hoverCover, setHoverCover] = useState('')
 
   // 城市搜索（高德行政区划）
   const [searchQuery, setSearchQuery] = useState('')
@@ -143,6 +179,7 @@ export default function GlobePage() {
   const [searching, setSearching] = useState(false)
   const districtSearchRef = useRef(null)
   const searchTimerRef = useRef(null)
+  const placeSearchRef = useRef(null)
 
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -150,8 +187,7 @@ export default function GlobePage() {
   const mapReadyRef = useRef(false) // 地图 complete 事件触发后为 true
   const fitTimerRef = useRef(null)
   const hoverHideTimerRef = useRef(null)
-  const hoveringCardRef = useRef(false)
-  const poiTagCacheRef = useRef({})
+  const hoverShowTimerRef = useRef(null)
   // 供 renderMarkers 读取最新数据（避免闭包陈旧）
   const dataRef = useRef({ allCities: [], tripData: [], activeMode: 'overview', activeCityId: null })
   dataRef.current = { allCities, tripData, activeMode, activeCityId }
@@ -202,6 +238,26 @@ export default function GlobePage() {
     })
   }, [])
 
+  // 景点检索（AMap.PlaceSearch，extensions: 'all' 才会返回 photos）
+  const ensurePlaceSearch = useCallback((cb) => {
+    if (!window.AMap) {
+      cb(null)
+      return
+    }
+    if (placeSearchRef.current) {
+      cb(placeSearchRef.current)
+      return
+    }
+    window.AMap.plugin('AMap.PlaceSearch', () => {
+      placeSearchRef.current = new window.AMap.PlaceSearch({
+        pageSize: 10,
+        pageIndex: 1,
+        extensions: 'all',
+      })
+      cb(placeSearchRef.current)
+    })
+  }, [])
+
   const handleSearchChange = (e) => {
     const v = e.target.value
     setSearchQuery(v)
@@ -245,53 +301,92 @@ export default function GlobePage() {
     setSearching(false)
   }
 
-  // ============ Hover 卡片（轻量，点击直接加入） ============
-  const cancelHideHover = useCallback(() => {
-    hoveringCardRef.current = true
-    if (hoverHideTimerRef.current) clearTimeout(hoverHideTimerRef.current)
-  }, [])
-
-  const scheduleHideHover = useCallback(() => {
-    hoveringCardRef.current = false
-    if (hoverHideTimerRef.current) clearTimeout(hoverHideTimerRef.current)
-    hoverHideTimerRef.current = setTimeout(() => {
-      if (!hoveringCardRef.current) {
-        setHoverCity(null)
-        setHoverPos(null)
-      }
-    }, 180)
-  }, [])
-
+  // ============ Hover 卡片（合并热区 + 延迟锁定） ============
   const showHoverCard = useCallback((city) => {
-    if (hoverHideTimerRef.current) clearTimeout(hoverHideTimerRef.current)
-    hoveringCardRef.current = false
-
     const map = mapRef.current
     if (!map) return
     const px = map.lngLatToContainer([Number(city.lng), Number(city.lat)])
     setHoverCity(city)
     setHoverPos({ x: px.x, y: px.y })
 
-    // 3 个景点标签：首次 hover 拉取并缓存
-    if (poiTagCacheRef.current[city.id]) {
-      setHoverTags(poiTagCacheRef.current[city.id])
+    const cityName = city.name
+    // 先用城市自带封面兜底，POI 照片到达后再替换
+    setHoverCover(city.coverImage || '')
+
+    // 命中缓存：直接渲染，不再请求高德
+    if (poiCache[cityName]) {
+      const { tags, cover } = poiCache[cityName]
+      setHoverTags(tags)
+      setHoverCover(cover || city.coverImage || '')
       setHoverTagsLoading(false)
-    } else {
-      setHoverTags([])
-      setHoverTagsLoading(true)
-      axios.get(`/api/poi/by-city/${city.id}`)
-        .then(res => {
-          const pois = Array.isArray(res.data) ? res.data : []
-          const tags = pois.slice(0, 3).map(p => p.name)
-          poiTagCacheRef.current[city.id] = tags
-          setHoverTags(tags)
-        })
-        .catch(() => {
-          poiTagCacheRef.current[city.id] = []
-          setHoverTags([])
-        })
-        .finally(() => setHoverTagsLoading(false))
+      return
     }
+
+    setHoverTags([])
+    setHoverTagsLoading(true)
+
+    ensurePlaceSearch((ps) => {
+      if (!ps) {
+        poiCache[cityName] = { tags: [], cover: '' }
+        setHoverTags([])
+        setHoverTagsLoading(false)
+        return
+      }
+      // 关键词带上“景点”，避免搜到火车站等无关地点
+      ps.search(`${cityName} 景点`, (status, result) => {
+        if (status === 'complete' && result.poiList && result.poiList.pois) {
+          const pois = result.poiList.pois
+          const tags = pois.slice(0, 3).map(p => p.name)
+          const photoPoi = pois.slice(0, 3).find(p => p.photos && p.photos.length > 0)
+          const cover = photoPoi ? photoPoi.photos[0].url : ''
+          poiCache[cityName] = { tags, cover }
+          setHoverTags(tags)
+          setHoverCover(cover || city.coverImage || '')
+        } else {
+          poiCache[cityName] = { tags: [], cover: '' }
+          setHoverTags([])
+          setHoverCover(city.coverImage || '')
+        }
+        setHoverTagsLoading(false)
+      })
+    })
+  }, [ensurePlaceSearch])
+
+  // 图钉热区 mouseenter：取消关闭 + 100ms 防抖后弹出
+  const handleHotZoneEnter = useCallback((city) => {
+    if (hoverHideTimerRef.current) {
+      clearTimeout(hoverHideTimerRef.current)
+      hoverHideTimerRef.current = null
+    }
+    if (hoverShowTimerRef.current) clearTimeout(hoverShowTimerRef.current)
+    hoverShowTimerRef.current = setTimeout(() => {
+      showHoverCard(city)
+    }, 100)
+  }, [showHoverCard])
+
+  // 卡片 mouseenter：取消关闭（锁定卡片）
+  const handleCardEnter = useCallback(() => {
+    if (hoverHideTimerRef.current) {
+      clearTimeout(hoverHideTimerRef.current)
+      hoverHideTimerRef.current = null
+    }
+    if (hoverShowTimerRef.current) {
+      clearTimeout(hoverShowTimerRef.current)
+      hoverShowTimerRef.current = null
+    }
+  }, [])
+
+  // 热区/卡片 mouseleave：500ms 延迟关闭（期间再次 mouseenter 会 clearTimeout）
+  const handleHotZoneLeave = useCallback(() => {
+    if (hoverShowTimerRef.current) {
+      clearTimeout(hoverShowTimerRef.current)
+      hoverShowTimerRef.current = null
+    }
+    if (hoverHideTimerRef.current) clearTimeout(hoverHideTimerRef.current)
+    hoverHideTimerRef.current = setTimeout(() => {
+      setHoverCity(null)
+      setHoverPos(null)
+    }, 500)
   }, [])
 
   // setFitView 延迟到下一帧之后，避免与 Marker 渲染冲突
@@ -403,42 +498,23 @@ export default function GlobePage() {
         const m = addMarker(
           city.lng,
           city.lat,
-          orangePinHtml(num),
-          -15, -38,
+          cityPinMarkerHtml(num, city.name),
+          -50, -62,
           () => handleCityClick(city),
         )
-        m.on('mouseover', () => showHoverCard(city))
-        m.on('mouseout', () => scheduleHideHover())
+        m.on('mouseover', () => handleHotZoneEnter(city))
+        m.on('mouseout', () => handleHotZoneLeave())
         markers.push(m)
-
-        // 城市名（AMap.Text，位于橙色图钉正下方，只显示纯净城市名）
-        const label = new window.AMap.Text({
-          text: city.name,
-          position: [Number(city.lng), Number(city.lat)],
-          anchor: 'top-center',
-          offset: new window.AMap.Pixel(0, 12),
-          style: {
-            'background-color': 'transparent',
-            border: 'none',
-            'font-size': '14px',
-            'font-weight': 'bold',
-            color: '#333333',
-            'text-shadow': '0 1px 2px #ffffff, 0 0 4px #ffffff',
-          },
-        })
-        label.setMap(map)
-        markersRef.current.push(label)
       } else {
         const m = addMarker(
           city.lng,
           city.lat,
-          hasTrip ? MUTED_MARKER_HTML : BREATHING_MARKER_HTML,
-          hasTrip ? -4 : -8,
-          hasTrip ? -4 : -8,
+          hitZone(hasTrip ? MUTED_MARKER_HTML : BREATHING_MARKER_HTML, 44, 44),
+          -22, -22,
           () => handleCityClick(city),
         )
-        m.on('mouseover', () => showHoverCard(city))
-        m.on('mouseout', () => scheduleHideHover())
+        m.on('mouseover', () => handleHotZoneEnter(city))
+        m.on('mouseout', () => handleHotZoneLeave())
         markers.push(m)
       }
     })
@@ -446,7 +522,7 @@ export default function GlobePage() {
     if (markers.length > 0) {
       scheduleFitView(markers)
     }
-  }, [handleCityClick, showHoverCard, scheduleHideHover, scheduleFitView])
+  }, [handleCityClick, handleHotZoneEnter, handleHotZoneLeave, scheduleFitView])
 
   // 初始化地图（等 complete 事件后再首次渲染 Marker）
   useEffect(() => {
@@ -497,6 +573,7 @@ export default function GlobePage() {
       window.removeEventListener('amap-ready', initMap)
       if (fitTimerRef.current) clearTimeout(fitTimerRef.current)
       if (hoverHideTimerRef.current) clearTimeout(hoverHideTimerRef.current)
+      if (hoverShowTimerRef.current) clearTimeout(hoverShowTimerRef.current)
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
       setHoverCity(null)
       setHoverPos(null)
@@ -600,20 +677,20 @@ export default function GlobePage() {
       {/* Hover 卡片：风景图 + 城市名 + 简介 + 3 个景点标签，点击任意区域即加入 */}
       {hoverCity && hoverPos && (
         <div
-          className="absolute z-[60] w-[240px] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl overflow-hidden cursor-pointer"
+          className="absolute z-[60] w-[240px] bg-white/95 backdrop-blur-md rounded-2xl shadow-xl cursor-pointer"
           style={{
             left: cardLeft,
             top: hoverPos.y - 12,
             transform: 'translate(-50%, -100%)',
           }}
-          onMouseEnter={cancelHideHover}
-          onMouseLeave={scheduleHideHover}
+          onMouseEnter={handleCardEnter}
+          onMouseLeave={handleHotZoneLeave}
           onClick={() => handleCityClick(hoverCity)}
         >
-          <div className="h-24 w-full bg-stone-200 overflow-hidden">
-            {hoverCity.coverImage ? (
+          <div className="h-24 w-full bg-stone-200 overflow-hidden rounded-t-2xl">
+            {hoverCover ? (
               <img
-                src={hoverCity.coverImage}
+                src={hoverCover}
                 alt={hoverCity.name}
                 className="h-24 w-full object-cover"
                 onError={(e) => { e.currentTarget.style.display = 'none' }}
@@ -642,6 +719,12 @@ export default function GlobePage() {
               )}
             </div>
           </div>
+
+          {/* 透明安全桥梁：连接图钉与卡片，消除移动过程中的 mouseout 间隙 */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 bg-transparent cursor-pointer"
+            style={{ top: '100%', width: 280, height: 56 }}
+          />
         </div>
       )}
 
