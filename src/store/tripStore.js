@@ -35,6 +35,17 @@ export const useTripStore = create(
                 slogan: city.slogan,
                 description: city.description,
                 pois: [],
+                transport: {
+                  note: '',
+                  trainCode: '',
+                  fromStation: '',
+                  toStation: '',
+                  startTime: '',
+                  arriveTime: '',
+                  travelDate: '',
+                  duration: '',
+                  price: null,
+                },
               },
             ],
           }
@@ -57,6 +68,16 @@ export const useTripStore = create(
         set((state) => ({
           tripData: state.tripData.map((n) =>
             n.type === 'city' && n.cityId === cityId ? { ...n, pois } : n
+          ),
+        })),
+
+      // 更新某座城市入城交通信息（note / 高铁班次等，部分字段合并）
+      updateTransport: (cityId, patch) =>
+        set((state) => ({
+          tripData: state.tripData.map((n) =>
+            n.type === 'city' && n.cityId === cityId
+              ? { ...n, transport: { ...(n.transport || {}), ...patch } }
+              : n
           ),
         })),
 
@@ -85,6 +106,15 @@ export const useTripStore = create(
         set((state) => ({
           tripData: [...state.tripData, { type: 'transport', from, to }],
         })),
+
+      // 从后端 getDetail 回显整条行程（城市顺序 + 交通备注 + 景点）
+      restoreTrip: (tripData, tripRouteId) =>
+        set({
+          tripData: Array.isArray(tripData) ? tripData : [],
+          tripRouteId: tripRouteId ?? null,
+          activeMode: 'overview',
+          activeCityId: null,
+        }),
 
       resetTrip: () => set({ tripData: [], activeMode: 'overview', activeCityId: null, tripRouteId: null }),
     }),

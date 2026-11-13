@@ -31,6 +31,15 @@ function renderTicketPrice(prices) {
   return `${seat} ${price}`
 }
 
+// 根据交通备注猜一个图标
+function transportIcon(note) {
+  const s = note || ''
+  if (s.includes('自驾') || s.includes('开车') || s.includes('拼车')) return '🚗'
+  if (s.includes('大巴') || s.includes('客车')) return '🚌'
+  if (s.includes('飞机') || s.includes('飞')) return '✈️'
+  return '🚄'
+}
+
 export default function RouteDetailPage() {
   const { id } = useParams()
   const routeId = Number(id)
@@ -154,6 +163,19 @@ export default function RouteDetailPage() {
     transit.segments.forEach(s => transitByPair.set(`${s.fromPoiName}|${s.toPoiName}`, s))
   }
 
+  // 从 tripDataJson 还原城市顺序与交通备注，用于在节点间回显城际交通
+  const cities = (() => {
+    if (!route.tripDataJson) return []
+    try {
+      const arr = JSON.parse(route.tripDataJson)
+      return Array.isArray(arr) ? arr.filter(n => n.type === 'city') : []
+    } catch {
+      return []
+    }
+  })()
+  const poiCityIndex = new Map()
+  cities.forEach((c, i) => (c.pois || []).forEach(p => poiCityIndex.set(p.poiId, i)))
+
   return (
     <div className="h-screen w-screen flex flex-col text-white">
       <Navbar currentPage="route" />
@@ -205,14 +227,34 @@ export default function RouteDetailPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {route.nodes?.map((node, idx) => {
-              const isActive = idx === activeNodeIndex
-              const nextNode = route.nodes[idx + 1]
-              const seg = nextNode ? transitByPair.get(`${node.poiName}|${nextNode.poiName}`) : null
-              return (
-                <Fragment key={idx}>
-                  <div
-                    onClick={() => setActiveNodeIndex(idx)}
+            {(() => {
+              let prevCityIdx = -1
+              return route.nodes?.map((node, idx) => {
+                const isActive = idx === activeNodeIndex
+                const nextNode = route.nodes[idx + 1]
+                const seg = nextNode ? transitByPair.get(`${node.poiName}|${nextNode.poiName}`) : null
+                const cityIdx = poiCityIndex.has(node.poiId) ? poiCityIndex.get(node.poiId) : -1
+                const showTransport = cityIdx > 0 && cityIdx !== prevCityIdx
+                if (cityIdx >= 0) prevCityIdx = cityIdx
+                const transport = showTransport ? cities[cityIdx]?.transport : null
+                return (
+                  <Fragment key={idx}>
+                    {transport && (transport.trainCode || (transport.note && transport.note.trim())) && (
+                      <div className="px-6 py-3 bg-gray-900/60 border-b border-white/10">
+                        {transport.trainCode ? (
+                          <span className="text-sm text-cyan-400">
+                            🚄 {transport.trainCode}
+                            {transport.startTime && transport.arriveTime ? ` · ${transport.startTime}-${transport.arriveTime}` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-cyan-400">
+                            {transportIcon(transport.note)} {transport.note}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div
+                      onClick={() => setActiveNodeIndex(idx)}
                     className={`p-6 border-b border-white/10 cursor-pointer transition ${
                       isActive ? 'bg-gray-900/60 border-l-4 border-l-cyan-400' : 'hover:bg-white/5 hover:border-l-cyan-400/40 border-l-4 border-l-transparent'
                     }`}
@@ -298,9 +340,10 @@ export default function RouteDetailPage() {
                       </button>
                     </div>
                   )}
-                </Fragment>
-              )
-            })}
+                  </Fragment>
+                )
+              })
+            })()}
 
             {route.tickets?.length > 0 && (
               <div className="p-6 border-t border-white/10">
@@ -322,6 +365,9 @@ export default function RouteDetailPage() {
                           </div>
                         )}
                         <div className="text-xs text-gray-400 mt-1">{renderTicketPrice(t.prices)}</div>
+                        {t.note && (
+                          <div className="text-xs text-cyan-400 mt-1">{transportIcon(t.note)} {t.note}</div>
+                        )}
                       </div>
                       <div className="flex gap-2 flex-shrink-0">
                         <button

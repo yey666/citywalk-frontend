@@ -45,12 +45,139 @@ function getTomorrowDate() {
   return `${y}-${m}-${day}`
 }
 
+function getTodayDate() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// 去掉城市名末尾的“市”字，得到 12306 查询用的站名（如“广州市”→“广州”）
+function normalizeCityName(name) {
+  if (!name) return ''
+  return String(name).replace(/市$/, '')
+}
+
+// 站名优先，缺失时降级用城市名（去“市”）
+function stationLabel(station, city) {
+  if (station) return station
+  return normalizeCityName(city) || city || ''
+}
+
 function renderTicketPrice(prices) {
   if (!prices || typeof prices !== 'object') return '—'
   const entries = Object.entries(prices)
   if (entries.length === 0) return '—'
   const [seat, price] = entries.find(([s]) => s === '二等座') || entries[0]
   return `${seat} ${price}`
+}
+
+// 根据备注文本猜一个交通图标
+function transportIcon(note) {
+  const s = note || ''
+  if (s.includes('自驾') || s.includes('开车') || s.includes('拼车') || s.includes('打车')) return '🚗'
+  if (s.includes('大巴') || s.includes('客车') || s.includes('汽车')) return '🚌'
+  if (s.includes('飞机') || s.includes('飞')) return '✈️'
+  if (s.includes('高铁') || s.includes('火车') || s.includes('动车')) return '🚄'
+  return '🚄'
+}
+
+// 由起止时间推算时长（如 "08:00" / "10:30" → "2小时30分"）
+function formatDuration(start, arrive) {
+  if (!start || !arrive) return ''
+  const toMin = (t) => {
+    const [h, m] = String(t).split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
+  }
+  const diff = toMin(arrive) - toMin(start)
+  if (diff <= 0) return ''
+  const h = Math.floor(diff / 60)
+  const m = diff % 60
+  if (h > 0) return m > 0 ? `${h}小时${m}分` : `${h}小时`
+  return `${m}分钟`
+}
+
+// 把 "HH:mm" 转成分钟数
+function toMinutes(t) {
+  if (!t) return null
+  const [h, m] = String(t).split(':').map(Number)
+  if (Number.isNaN(h)) return null
+  return h * 60 + (m || 0)
+}
+
+// 起止时间差（分钟），跨天或异常返回 null
+function durationMinutes(start, arrive) {
+  const s = toMinutes(start)
+  const a = toMinutes(arrive)
+  if (s == null || a == null || a <= s) return null
+  return a - s
+}
+
+// 价格展示：238 → "¥238"
+function formatPrice(p) {
+  if (p == null || p === '' || Number.isNaN(Number(p))) return ''
+  return `¥${Number(p)}`
+}
+
+// 取车次的醒目展示价：优先 price 字段，其次从 prices 里找二等座/硬座
+function trainPrice(train) {
+  if (train?.price != null && train.price !== '') {
+    const n = Number(train.price)
+    if (!Number.isNaN(n)) return n
+  }
+  const prices = train?.prices
+  if (!prices || typeof prices !== 'object') return null
+  for (const key of ['二等座', '硬座', '商务座', '一等座', '无座']) {
+    const v = prices[key]
+    if (v != null && v !== '') {
+      const n = Number(v)
+      if (!Number.isNaN(n)) return n
+    }
+  }
+  for (const v of Object.values(prices)) {
+    const n = Number(v)
+    if (!Number.isNaN(n)) return n
+  }
+  return null
+}
+
+// 智能推荐：最早出发 / 耗时最短 / 价格最低，去重，最多 3 条
+function pickBestTrains(trains) {
+  if (!Array.isArray(trains) || trains.length === 0) return []
+  const enriched = trains.map(t => ({
+    ...t,
+    _dur: durationMinutes(t.startTime, t.arriveTime),
+    _price: trainPrice(t),
+  }))
+
+  const bestIdx = (key, cmp) => {
+    let idx = -1
+    enriched.forEach((t, i) => {
+      const v = t[key]
+      if (v == null || v === '') return
+      if (idx === -1 || cmp(v, enriched[idx][key]) < 0) idx = i
+    })
+    return idx
+  }
+
+  const earliestIdx = bestIdx('startTime', (a, b) => String(a).localeCompare(String(b)))
+  const fastestIdx = bestIdx('_dur', (a, b) => a - b)
+  const cheapestIdx = bestIdx('_price', (a, b) => a - b)
+
+  const seen = new Set()
+  const picked = []
+  const addPick = (idx, tag) => {
+    if (idx < 0 || seen.has(idx)) return
+    seen.add(idx)
+    picked.push({ ...enriched[idx], tag })
+  }
+
+  addPick(earliestIdx, '🌅 早班')
+  addPick(fastestIdx, '⚡ 最快')
+  addPick(cheapestIdx, '💰 最便宜')
+
+  return picked.slice(0, 3)
 }
 
 // ============ 景点卡片（勾选） ============
@@ -206,18 +333,195 @@ function TicketAssistant() {
   )
 }
 
+// ============ 城际交通卡片（默认极简单行，点击展开编辑） ============
+function TransportCard({ transport = {}, fromName, toName, onChange }) {
+  const [note, setNote] = useState(transport.note || '')
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(getTodayDate)
+  const [querying, setQuerying] = useState(false)
+  const [queried, setQueried] = useState(false)
+  const [results, setResults] = useState([])
+  const [queryError, setQueryError] = useState(null)
+  const debounceRef = useRef(null)
+
+  // 外部 transport.note 变化时同步（如切换行程 / 恢复缓存）
+  useEffect(() => {
+    setNote(transport.note || '')
+  }, [transport.note])
+
+  // 卸载时清理防抖定时器
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+
+  const handleNoteChange = (e) => {
+    const v = e.target.value
+    setNote(v)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => onChange({ note: v }), 1000)
+  }
+
+  const query = async () => {
+    const from = normalizeCityName(fromName)
+    const to = normalizeCityName(toName)
+    if (!from || !to) {
+      setQueryError('缺少相邻城市信息')
+      return
+    }
+    setQuerying(true)
+    setQueried(false)
+    setQueryError(null)
+    setResults([])
+    try {
+      const res = await axios.get('/api/train/query', { params: { from, to, date } })
+      setResults(res.data?.trains || [])
+    } catch (err) {
+      setQueryError(err.response?.data?.message || err.message || '查询失败')
+      setResults([])
+    } finally {
+      setQuerying(false)
+      setQueried(true)
+    }
+  }
+
+  const applyTrain = (train) => {
+    onChange({
+      trainCode: train.trainCode,
+      fromStation: train.fromStation,
+      toStation: train.toStation,
+      startTime: train.startTime,
+      arriveTime: train.arriveTime,
+      duration: train.duration || formatDuration(train.startTime, train.arriveTime),
+      travelDate: date,
+      price: trainPrice(train),
+    })
+    setOpen(false)
+  }
+
+  const t = transport
+  const hasTrain = !!(t.trainCode)
+  const hasNote = !!(t.note && t.note.trim())
+
+  // 极简单行文案：🚄 G2961 · 广州南-西宁 · ¥800 · 16:19出发
+  let label
+  let showRoute = false
+  if (hasTrain) {
+    const from = stationLabel(t.fromStation, fromName)
+    const to = stationLabel(t.toStation, toName)
+    label = `🚄 ${t.trainCode}`
+    if (from && to) label += ` · ${from}-${to}`
+    if (t.price != null) label += ` · ${formatPrice(t.price)}`
+    if (t.startTime) label += ` · ${t.startTime}出发`
+  } else if (hasNote) {
+    label = `${transportIcon(t.note)} ${t.note}`
+    showRoute = true
+  } else {
+    label = '🚄 待添加班次'
+    showRoute = true
+  }
+  const routeText = showRoute && fromName && toName ? ` (${fromName} → ${toName})` : ''
+  const editLabel = hasTrain || hasNote ? '[修改]' : '[编辑]'
+
+  const recommended = pickBestTrains(results)
+
+  return (
+    <div className="relative pl-12 py-1">
+      {/* 极简单行（点击展开） */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-1 text-left text-[11px] text-stone-400 hover:text-stone-600 transition"
+      >
+        <span className="flex-1 min-w-0 truncate">{label}{routeText}</span>
+        <span className="shrink-0 text-stone-300">{editLabel}</span>
+      </button>
+
+      {/* 展开：白色编辑卡片 */}
+      {open && (
+        <div className="mt-1 bg-white border border-stone-200 rounded-xl shadow-sm p-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={date}
+              onChange={e => setDate(e.target.value)}
+              className="px-2 py-1.5 text-xs bg-white border border-stone-200 rounded-md text-stone-700 [color-scheme:light] focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+            <button
+              type="button"
+              onClick={query}
+              disabled={querying}
+              className="px-3 py-1.5 text-xs bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {querying ? '查询中...' : `🚄 查票 ${normalizeCityName(fromName) || ''} → ${normalizeCityName(toName) || ''}`}
+            </button>
+          </div>
+
+          {queryError && <p className="mt-2 text-xs text-red-500">{queryError}</p>}
+
+          {!querying && !queryError && results.length === 0 && (
+            <p className="mt-2 text-xs text-stone-400">
+              {queried ? '⚠️ 暂无该日期车次，您可以在下方直接填写其他交通方式' : '可查询两地间高铁班次并记入本段'}
+            </p>
+          )}
+
+          <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+            {recommended.map((train, idx) => (
+              <div key={`${train.trainCode}-${idx}`} className="flex items-center justify-between bg-stone-50 border border-stone-100 rounded-lg px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {train.tag && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 shrink-0">{train.tag}</span>
+                    )}
+                    <span className="text-stone-900 font-medium">{train.trainCode}</span>
+                  </div>
+                  <div className="text-[11px] text-stone-600 mt-0.5">
+                    {stationLabel(train.fromStation, fromName)} {train.startTime} → {stationLabel(train.toStation, toName)} {train.arriveTime}
+                  </div>
+                  <div className="text-[11px] text-stone-400">
+                    {train.duration || formatDuration(train.startTime, train.arriveTime)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {trainPrice(train) != null && (
+                    <span className="text-sm font-bold text-orange-500">{formatPrice(trainPrice(train))}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => applyTrain(train)}
+                    className="text-xs px-2.5 py-1 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition"
+                  >
+                    记入
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <input
+            value={note}
+            onChange={handleNoteChange}
+            placeholder="+ 添加备注（如：自驾3小时/大巴/拼车...）"
+            className="mt-2 w-full bg-stone-50 border border-stone-200 rounded-lg px-2.5 py-1.5 text-xs text-stone-700 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ============ 可拖拽城市卡片（时间轴行，含上方 🚄 连接线） ============
-function SortableCityRow({ city, isFirst, onOpen, onRemove }) {
+function SortableCityRow({ city, isFirst, prevCity, onOpen, onRemove, onUpdateTransport }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: city.cityId })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
   return (
     <div ref={setNodeRef} style={style} className={isDragging ? 'relative z-20 opacity-70' : 'relative'}>
-      {/* 两座城市之间的高铁连接线（第一座城市上方不显示） */}
+      {/* 两座城市之间的城际交通卡片（第一座城市上方不显示） */}
       {!isFirst && (
-        <div className="relative pl-12 h-9 flex items-center">
-          <span className="absolute left-6 -translate-x-1/2 text-base leading-none bg-white rounded-full px-1 z-10">🚄</span>
-        </div>
+        <TransportCard
+          transport={city.transport}
+          fromName={prevCity?.cityName}
+          toName={city.cityName}
+          onChange={(patch) => onUpdateTransport(city.cityId, patch)}
+        />
       )}
 
       {/* 城市卡片行 */}
@@ -267,6 +571,7 @@ export default function WorkbenchPanel() {
     setActiveCity,
     backToOverview,
     updateCityPois,
+    updateTransport,
     setTripRouteId,
     removeCity,
     reorderCities,
@@ -425,6 +730,20 @@ export default function WorkbenchPanel() {
       })
       const totalMinutes = flatNodes.reduce((s, nd) => s + (nd.stayDuration || 0), 0)
 
+      // 城际交通：从第二座城市开始，每段的 note / 高铁信息作为一条 ticket 传后端
+      const tickets = cityNodes.slice(1)
+        .map(n => n.transport || {})
+        .filter(t => t.trainCode || (t.note && t.note.trim()))
+        .map(t => ({
+          trainCode: t.trainCode || null,
+          fromStation: t.fromStation || null,
+          toStation: t.toStation || null,
+          startTime: t.startTime || null,
+          arriveTime: t.arriveTime || null,
+          travelDate: t.travelDate || null,
+          note: t.note || null,
+        }))
+
       const res = await axios.post('/api/route/save-draft', {
         routeId: state.tripRouteId ?? null,
         cityId: cityNodes[0] ? Number(cityNodes[0].cityId) : null,
@@ -433,8 +752,9 @@ export default function WorkbenchPanel() {
         duration: Math.max(1, Math.ceil(totalMinutes / 60)),
         difficulty: '轻松',
         aiGenerated: 0,
+        tripDataJson: JSON.stringify(state.tripData),
         nodes: flatNodes.map((nd, i) => ({ ...nd, sortOrder: i + 1 })),
-        tickets: [],
+        tickets,
       })
 
       if (res.data?.routeId && state.tripRouteId !== res.data.routeId) {
@@ -510,8 +830,10 @@ export default function WorkbenchPanel() {
                           key={city.cityId}
                           city={city}
                           isFirst={idx === 0}
+                          prevCity={idx > 0 ? cityNodes[idx - 1] : null}
                           onOpen={setActiveCity}
                           onRemove={removeCity}
+                          onUpdateTransport={updateTransport}
                         />
                       ))}
                     </div>

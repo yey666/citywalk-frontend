@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Skeleton from '../components/ui/Skeleton'
 import { useAuth } from '../context/AuthContext'
+import { useTripStore } from '../store/tripStore'
 
 function LightEmpty({ title, description, action }) {
   return (
@@ -100,6 +101,26 @@ export default function ProfilePage() {
       document.body.removeChild(ta)
     }
     showToast('链接已复制')
+  }
+
+  // 从后端 getDetail 回显整条行程到首页（城市顺序 + 交通备注 + 景点）
+  const handleContinuePlan = async (planId) => {
+    try {
+      const res = await axios.get(`/api/route/${planId}`)
+      const data = res.data
+      let tripData = []
+      if (data.tripDataJson) {
+        try { tripData = JSON.parse(data.tripDataJson) } catch { tripData = [] }
+      }
+      if (!Array.isArray(tripData) || tripData.length === 0) {
+        showToast('该计划没有可恢复的行程数据', 3000)
+        return
+      }
+      useTripStore.getState().restoreTrip(tripData, data.id)
+      navigate('/')
+    } catch (err) {
+      showToast('加载计划失败：' + (err.response?.data?.message || err.message), 3000)
+    }
   }
 
   const handleLogout = () => {
@@ -261,6 +282,12 @@ export default function ProfilePage() {
                             </div>
                           </div>
                           <div className="flex gap-2 ml-4 flex-shrink-0">
+                            <button
+                              onClick={() => handleContinuePlan(plan.id)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-md transition-colors"
+                            >
+                              继续规划
+                            </button>
                             <button
                               onClick={() => window.open('/print/' + plan.id, '_blank')}
                               className="bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs px-3 py-1.5 rounded-md transition-colors"
