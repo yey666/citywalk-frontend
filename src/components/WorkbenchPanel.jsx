@@ -319,10 +319,36 @@ function TransportCard({ transport = {}, fromName, toName, onChange }) {
   )
 }
 
+// 默认风景图兜底：高德没返回图片时用，避免灰色死块
+const DEFAULT_COVER = 'https://images.unsplash.com/photo-1506744626753-eda818c6cce5'
+
+// 城市封面内存缓存：{ [城市名]: 封面URL }，查过的城市不再重复请求
+const coverCache = {}
+
+// 查询单个城市封面：每次新建 PlaceSearch 实例，避免旧实例报错/限流缓存
+function searchCityCover(cityName) {
+  return new Promise((resolve) => {
+    window.AMap.plugin('AMap.PlaceSearch', () => {
+      const ps = new window.AMap.PlaceSearch({ pageSize: 10, extensions: 'all' })
+      ps.search(`${cityName} 景点`, (status, result) => {
+        let url = ''
+        if (status === 'complete' && result && result.poiList && result.poiList.pois) {
+          const poi = result.poiList.pois.find(p => p.photos && p.photos.length > 0 && p.photos[0].url)
+          if (poi) url = poi.photos[0].url
+        }
+        resolve(url || DEFAULT_COVER)
+      })
+    })
+  })
+}
+
 // ============ 可拖拽城市卡片（时间轴行，含上方 🚄 连接线） ============
-function SortableCityRow({ city, isFirst, prevCity, onOpen, onRemove, onUpdateTransport }) {
+function SortableCityRow({ city, isFirst, prevCity, onOpen, onRemove, onUpdateTransport, covers }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: city.cityId })
   const style = { transform: CSS.Transform.toString(transform), transition }
+
+  // 封面优先级：城市自带 coverImage > 排队拉取的真实图 > 默认兜底图（保证永不灰块）
+  const cover = city.coverImage || covers[city.cityName] || DEFAULT_COVER
 
   return (
     <div ref={setNodeRef} style={style} className={isDragging ? 'relative z-20 opacity-70' : 'relative'}>
@@ -350,7 +376,7 @@ function SortableCityRow({ city, isFirst, prevCity, onOpen, onRemove, onUpdateTr
           </span>
           <div
             className="w-14 h-14 rounded-xl bg-stone-200 bg-cover bg-center shrink-0"
-            style={city.coverImage ? { backgroundImage: `url(${city.coverImage})` } : undefined}
+            style={{ backgroundImage: `url(${cover})` }}
           />
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpen(city.cityId)}>
             <div className="font-semibold text-stone-900">{city.cityName}</div>
@@ -404,6 +430,41 @@ export default function WorkbenchPanel({ transitInfo = [], transitMode = 'transi
     setToast({ msg, kind })
     setTimeout(() => setToast(null), ms)
   }, [])
+
+  // 城市封面：排队逐个查询，避免并发请求被高德限流
+  const [covers, setCovers] = useState({})
+  const coverQueueRef = useRef(false)
+
+  const fillCovers = useCallback(async () => {
+    if (coverQueueRef.current) return
+    coverQueueRef.current = true
+    try {
+      // 等 AMap 就绪
+      if (!window.AMap) {
+        await new Promise((res) => window.addEventListener('amap-ready', res, { once: true }))
+      }
+      // 循环直到没有待查城市（顺带处理循环期间新增的城市）
+      while (true) {
+        const pending = useTripStore.getState().tripData.filter(
+          n => n.type === 'city' && !n.coverImage && n.lng != null && n.lat != null && coverCache[n.cityName] === undefined
+        )
+        if (pending.length === 0) break
+        for (const c of pending) {
+          const url = await searchCityCover(c.cityName)
+          coverCache[c.cityName] = url
+          setCovers(prev => ({ ...prev, [c.cityName]: url }))
+          await new Promise(r => setTimeout(r, 200)) // 逐个查询，间隔 200ms 防限流
+        }
+      }
+    } finally {
+      coverQueueRef.current = false
+    }
+  }, [])
+
+  // tripData 变化时触发封面排队拉取
+  useEffect(() => {
+    fillCovers()
+  }, [tripData, fillCovers])
 
   // 挂载时校验整条行程的 tripRouteId 是否仍存在（斩断幽灵缓存）
   useEffect(() => {
@@ -622,6 +683,7 @@ export default function WorkbenchPanel({ transitInfo = [], transitMode = 'transi
                           onOpen={setActiveCity}
                           onRemove={removeCity}
                           onUpdateTransport={updateTransport}
+                          covers={covers}
                         />
                       ))}
                     </div>
