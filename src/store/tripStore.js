@@ -71,6 +71,26 @@ export const useTripStore = create(
           ),
         })),
 
+      // 追加单个景点（自动去重）
+      addPoi: (cityId, poi) =>
+        set((state) => ({
+          tripData: state.tripData.map((n) => {
+            if (n.type !== 'city' || n.cityId !== cityId) return n
+            if ((n.pois || []).some((p) => p.poiId === poi.poiId)) return n
+            return { ...n, pois: [...(n.pois || []), poi] }
+          }),
+        })),
+
+      // 移除单个景点
+      removePoi: (cityId, poiId) =>
+        set((state) => ({
+          tripData: state.tripData.map((n) =>
+            n.type === 'city' && n.cityId === cityId
+              ? { ...n, pois: (n.pois || []).filter((p) => p.poiId !== poiId) }
+              : n
+          ),
+        })),
+
       // 更新某座城市入城交通信息（note / 高铁班次等，部分字段合并）
       updateTransport: (cityId, patch) =>
         set((state) => ({

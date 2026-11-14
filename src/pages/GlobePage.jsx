@@ -37,17 +37,23 @@ const PIN_MARKER_HTML = `
   </div>
 `
 
-// 已勾选景点：青色圆点
-const POI_MARKER_HTML = `
-  <div style="
-    width: 18px; height: 18px;
-    border-radius: 50%;
-    background: #22d3ee;
-    border: 3px solid #fff;
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
-    cursor: pointer;
-  "></div>
-`
+// 已勾选景点：青色序号圆点（序号与右侧面板列表的 index+1 严格对应）
+function poiNumberMarkerHtml(num) {
+  return `
+    <div style="
+      width: 24px; height: 24px;
+      box-sizing: border-box;
+      border-radius: 50%;
+      background: #22d3ee;
+      border: 2px solid #fff;
+      box-shadow: 0 0 10px rgba(34, 211, 238, 0.8);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 12px;
+      font-family: system-ui, sans-serif; line-height: 1;
+      cursor: pointer;
+    ">${num}</div>
+  `
+}
 
 // 规划中：未加入行程的城市降噪为浅灰小圆点
 const MUTED_MARKER_HTML = `
@@ -60,7 +66,32 @@ const MUTED_MARKER_HTML = `
   "></div>
 `
 
-// 已加入行程：序号图钉 + 城市名，合并为一个整体热区（透明内边距放大命中区）
+// 序号图钉主体（橙色圆点 + 底部小尾巴），供两种形态复用
+function pinInnerHtml(num) {
+  return `
+    <div style="display: flex; flex-direction: column; align-items: center; pointer-events: none;">
+      <div style="
+        width: 30px; height: 30px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        background: #F97316;
+        border: 3px solid #fff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-weight: 700; font-size: 14px;
+        font-family: system-ui, sans-serif; line-height: 1;
+      ">${num}</div>
+      <div style="
+        width: 0; height: 0;
+        border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-top: 10px solid #F97316;
+      "></div>
+    </div>
+  `
+}
+
+// 已加入行程（冷门城市）：序号图钉 + 黑色城市名，合并为一个整体热区（透明内边距放大命中区）
 function cityPinMarkerHtml(num, name) {
   return `
     <div style="
@@ -72,25 +103,7 @@ function cityPinMarkerHtml(num, name) {
       background: transparent;
       cursor: pointer;
     ">
-      <div style="display: flex; flex-direction: column; align-items: center; pointer-events: none;">
-        <div style="
-          width: 30px; height: 30px;
-          box-sizing: border-box;
-          border-radius: 50%;
-          background: #F97316;
-          border: 3px solid #fff;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-          display: flex; align-items: center; justify-content: center;
-          color: #fff; font-weight: 700; font-size: 14px;
-          font-family: system-ui, sans-serif; line-height: 1;
-        ">${num}</div>
-        <div style="
-          width: 0; height: 0;
-          border-left: 7px solid transparent;
-          border-right: 7px solid transparent;
-          border-top: 10px solid #F97316;
-        "></div>
-      </div>
+      ${pinInnerHtml(num)}
       <div style="
         margin-top: 4px;
         pointer-events: none;
@@ -99,6 +112,23 @@ function cityPinMarkerHtml(num, name) {
         text-shadow: 0 1px 2px #ffffff, 0 0 4px #ffffff;
         white-space: nowrap; line-height: 1.2;
       ">${name}</div>
+    </div>
+  `
+}
+
+// 已加入行程（底图自带城市名）：仅序号图钉，尾巴尖指向底图原有名称，避免文字重叠
+function cityPinOnlyMarkerHtml(num) {
+  return `
+    <div style="
+      width: 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 0 0;
+      background: transparent;
+      cursor: pointer;
+    ">
+      ${pinInnerHtml(num)}
     </div>
   `
 }
@@ -123,6 +153,216 @@ const poiCache = {}
 
 // 直辖市：区级结果直接用直辖市本身作为前缀
 const MUNICIPALITIES = { '11': '北京市', '12': '天津市', '31': '上海市', '50': '重庆市' }
+
+// 底图自带文字标注的热门大城市（直辖市 + 各省会/首府 + 常见大城市）
+// 这些城市在高德底图全国视野已自带名称，我们的序号图钉不再重复渲染黑色城市名
+const MAJOR_CITIES = new Set([
+  // 直辖市
+  '北京', '上海', '天津', '重庆',
+  // 省会 / 自治区首府
+  '石家庄', '太原', '呼和浩特', '沈阳', '长春', '哈尔滨',
+  '南京', '杭州', '合肥', '福州', '南昌', '济南',
+  '郑州', '武汉', '长沙', '广州', '南宁', '海口',
+  '成都', '贵阳', '昆明', '拉萨', '西安', '兰州',
+  '西宁', '银川', '乌鲁木齐',
+  // 计划单列市 / 常见大城市
+  '深圳', '大连', '青岛', '宁波', '厦门',
+  '苏州', '无锡', '常州', '南通', '徐州',
+  '温州', '嘉兴', '绍兴', '金华', '台州',
+  '佛山', '东莞', '中山', '珠海', '惠州',
+  '泉州', '漳州', '烟台', '潍坊', '临沂', '淄博',
+  '唐山', '保定', '邯郸', '秦皇岛', '洛阳', '南阳',
+  '宜昌', '襄阳', '岳阳', '衡阳', '柳州', '桂林',
+  '绵阳', '遵义', '汕头', '湛江', '威海',
+  '芜湖', '九江', '赣州', '咸阳', '宝鸡', '大理', '丽江',
+  '香港', '澳门',
+])
+
+// 去掉“市/省/自治区/自治州/特别行政区”等后缀，得到城市核心名
+function normalizeCityName(name) {
+  if (!name) return ''
+  return String(name)
+    .replace(/(市|地区|自治州|盟|特别行政区|省|自治区)$/, '')
+    .trim()
+}
+
+// 判断是否为底图自带名称的大城市
+function isMajorCity(name) {
+  return MAJOR_CITIES.has(normalizeCityName(name))
+}
+
+// 从 AMap PlaceSearch 的 POI 结果中提取经纬度（兼容 LngLat 实例与纯对象两种形态）
+function poiLngLat(poi) {
+  const loc = poi && poi.location
+  if (!loc) return null
+  const lng = Number(loc.lng != null ? loc.lng : (typeof loc.getLng === 'function' ? loc.getLng() : NaN))
+  const lat = Number(loc.lat != null ? loc.lat : (typeof loc.getLat === 'function' ? loc.getLat() : NaN))
+  if (Number.isNaN(lng) || Number.isNaN(lat)) return null
+  return { lng, lat }
+}
+
+// 把 AMap LngLat（实例 / {lng,lat} 纯对象 / "lng,lat" 字符串）统一转成 [lng, lat]
+function llToArray(ll) {
+  if (!ll) return null
+  if (typeof ll === 'string') {
+    const [lng, lat] = ll.split(',').map(Number)
+    if (!Number.isNaN(lng) && !Number.isNaN(lat)) return [lng, lat]
+    return null
+  }
+  const lng = Number(ll.lng != null ? ll.lng : (typeof ll.getLng === 'function' ? ll.getLng() : NaN))
+  const lat = Number(ll.lat != null ? ll.lat : (typeof ll.getLat === 'function' ? ll.getLat() : NaN))
+  if (Number.isNaN(lng) || Number.isNaN(lat)) return null
+  return [lng, lat]
+}
+
+// 距离格式化：米 / 公里
+function fmtDistance(m) {
+  if (m == null) return ''
+  const n = Number(m)
+  if (Number.isNaN(n)) return ''
+  if (n < 1000) return `${Math.round(n)}米`
+  return `${(n / 1000).toFixed(1)}公里`
+}
+
+// 时长格式化：秒 → 约X分钟 / 约X小时X分
+function fmtDuration(sec) {
+  if (sec == null) return ''
+  const mins = Math.round(Number(sec) / 60)
+  if (Number.isNaN(mins) || mins <= 0) return ''
+  if (mins < 60) return `约${mins}分钟`
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m ? `约${h}小时${m}分` : `约${h}小时`
+}
+
+// 步行段文案：🚶 步行 800米 (约12分钟)
+function buildWalkingLabel(dist, time) {
+  const d = fmtDistance(dist)
+  const t = fmtDuration(time)
+  if (d && t) return `🚶 步行 ${d} (${t})`
+  if (d) return `🚶 步行 ${d}`
+  if (t) return `🚶 步行 (${t})`
+  return '🚶 步行'
+}
+
+// 公交/地铁段文案：🚇 地铁3号线 (佛山大学 → 中山公园)
+function buildTransitLineLabel(name, type, fromStop, toStop) {
+  const icon = type === 'subway' ? '🚇' : '🚌'
+  const clean = (name || '').replace(/\s*\(.*\)\s*$/, '').trim() || '公交/地铁'
+  const stops = fromStop && toStop ? ` (${fromStop} → ${toStop})` : ''
+  return `${icon} ${clean}${stops}`
+}
+
+// 从 AMap.Transfer 结果中提取第一个换乘方案（兼容 route.transits 与 plans 两种结构）
+function extractTransitPlan(result) {
+  if (!result) return null
+  if (result.route && Array.isArray(result.route.transits) && result.route.transits.length > 0) {
+    return result.route.transits[0]
+  }
+  if (Array.isArray(result.plans) && result.plans.length > 0) {
+    return result.plans[0]
+  }
+  return null
+}
+
+// 提取换乘方案总耗时（秒），用于解析失败时的兜底文案
+function extractTransitDuration(result, plan) {
+  if (plan) {
+    if (plan.duration != null) return Number(plan.duration)
+    if (plan.time != null) return Number(plan.time)
+  }
+  if (result && result.route && result.route.time != null) return Number(result.route.time)
+  return null
+}
+
+// 解析 Transfer 单个换乘方案为「全链路分段」：步行段 + 公交/地铁段，逐段拆开
+// 真实结构：route.transits[0].segments[]，每段含 walking 和/或 bus；兼容 plans / transit.lines
+function parseTransferPlan(transit) {
+  const segs = []
+  if (!transit || !Array.isArray(transit.segments)) return segs
+  for (const seg of transit.segments) {
+    if (!seg) continue
+
+    // 步行段：walking.distance + walking.duration（旧结构可能是 walking.time）
+    if (seg.walking) {
+      const points = []
+      const steps = seg.walking.steps || []
+      for (const step of steps) {
+        if (step && Array.isArray(step.path)) {
+          for (const p of step.path) {
+            const arr = llToArray(p)
+            if (arr) points.push(arr)
+          }
+        }
+      }
+      const dur = seg.walking.duration != null ? seg.walking.duration : seg.walking.time
+      segs.push({
+        type: 'walking',
+        points,
+        label: buildWalkingLabel(seg.walking.distance, dur),
+      })
+    }
+
+    // 公交/地铁段：真实结构 bus.buslines；兼容旧结构 transit.lines
+    const lines = (seg.bus && seg.bus.buslines) || (seg.transit && seg.transit.lines) || []
+    for (const line of lines) {
+      if (!line) continue
+      const points = []
+      const viaStops = line.via_stops || line.stations || []
+      if (Array.isArray(viaStops)) {
+        for (const st of viaStops) {
+          const arr = llToArray(st && st.location)
+          if (arr) points.push(arr)
+        }
+      }
+      if (points.length === 0 && Array.isArray(line.path)) {
+        for (const p of line.path) {
+          const arr = llToArray(p)
+          if (arr) points.push(arr)
+        }
+      }
+      // 仍没有坐标：退化为上下车站连线
+      if (points.length === 0) {
+        const dep = llToArray(line.departure_stop && line.departure_stop.location)
+        const arr = llToArray(line.arrival_stop && line.arrival_stop.location)
+        if (dep) points.push(dep)
+        if (arr) points.push(arr)
+      }
+      const stations = line.stations || []
+      const fromStop = (line.departure_stop && line.departure_stop.name) || (stations[0] && stations[0].name) || ''
+      const toStop = (line.arrival_stop && line.arrival_stop.name) || (stations[stations.length - 1] && stations[stations.length - 1].name) || ''
+      const type = String(line.type || '').includes('地铁') ? 'subway' : 'bus'
+      segs.push({
+        type,
+        points,
+        label: buildTransitLineLabel(line.name, type, fromStop, toStop),
+      })
+    }
+  }
+  return segs
+}
+
+// 从 Driving 路线中提取坐标路径：拼接每个 step.path
+function extractDrivingPath(route) {
+  const points = []
+  if (!route || !Array.isArray(route.steps)) return points
+  for (const step of route.steps) {
+    if (step && Array.isArray(step.path)) {
+      for (const p of step.path) {
+        const arr = llToArray(p)
+        if (arr) points.push(arr)
+      }
+    }
+  }
+  return points
+}
+
+// 交通方式 → 折线颜色（给用户最直观的视觉反馈）
+const TRANSIT_MODE_STYLE = {
+  transit: { color: '#a78bfa', label: '🚌 公交' }, // 浅紫
+  driving: { color: '#60a5fa', label: '🚕 打车' }, // 浅蓝
+  walking: { color: '#34d399', label: '🚶 步行' }, // 浅绿
+}
 
 // 根据 adcode + 级别推导父级 adcode
 function parentAdcode(adcode, level) {
@@ -160,7 +400,10 @@ export default function GlobePage() {
   const { logout } = useAuth()
   const nickname = localStorage.getItem('nickname') || '用户'
 
-  const { tripData, activeMode, activeCityId, addCity, setActiveCity, fitSignal } = useTripStore()
+  const { tripData, activeMode, activeCityId, addCity, addPoi, setActiveCity, fitSignal } = useTripStore()
+
+  // 单城模式下当前聚焦的城市节点
+  const activeCityNode = tripData.find(n => n.type === 'city' && n.cityId === activeCityId)
 
   const [allCities, setAllCities] = useState([])
   const [status, setStatus] = useState('loading') // loading | error | ready
@@ -180,6 +423,16 @@ export default function GlobePage() {
   const districtSearchRef = useRef(null)
   const searchTimerRef = useRef(null)
   const placeSearchRef = useRef(null)
+  const poiSearchRef = useRef(null)
+
+  // 单城交通路线（公交/地铁 / 打车 / 步行）
+  const transferRef = useRef(null)
+  const drivingRef = useRef(null)
+  const walkingRef = useRef(null)
+  const transitPolylineRef = useRef([])
+  const transitRequestIdRef = useRef(0)
+  const [transitInfo, setTransitInfo] = useState([])
+  const [transitMode, setTransitMode] = useState('transit') // transit | driving | walking
 
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -204,6 +457,14 @@ export default function GlobePage() {
         setStatus('error')
       })
   }, [])
+
+  // 切换 overview / city_detail 时清空底部搜索框状态，避免两种检索串味
+  useEffect(() => {
+    setSearchQuery('')
+    setSearchResults([])
+    setSearching(false)
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+  }, [activeMode, activeCityId])
 
   // 点击城市 Marker（或 Hover 卡片）：已在行程 → 进入单城；否则加入行程
   const handleCityClick = useCallback((city) => {
@@ -258,6 +519,80 @@ export default function GlobePage() {
     })
   }, [])
 
+  // 单城模式下的 POI 检索（限在该城市范围内，extensions: 'all' 返回照片）
+  const ensurePoiSearch = useCallback((cb) => {
+    if (!window.AMap) {
+      cb(null)
+      return
+    }
+    if (poiSearchRef.current) {
+      cb(poiSearchRef.current)
+      return
+    }
+    window.AMap.plugin('AMap.PlaceSearch', () => {
+      poiSearchRef.current = new window.AMap.PlaceSearch({
+        pageSize: 10,
+        pageIndex: 1,
+        extensions: 'all',
+        citylimit: true,
+      })
+      cb(poiSearchRef.current)
+    })
+  }, [])
+
+  // 公交/地铁路线规划（AMap.Transfer）
+  const ensureTransfer = useCallback((cityName, cb) => {
+    if (!window.AMap) {
+      cb(null)
+      return
+    }
+    if (transferRef.current) {
+      try { transferRef.current.setCity(cityName || '') } catch (e) { /* 忽略 */ }
+      cb(transferRef.current)
+      return
+    }
+    window.AMap.plugin('AMap.Transfer', () => {
+      transferRef.current = new window.AMap.Transfer({
+        city: cityName || '',
+        extensions: 'all',
+        hideMarkers: true,
+      })
+      cb(transferRef.current)
+    })
+  }, [])
+
+  // 驾车/打车路线规划（AMap.Driving），作为 Transfer 无结果时的降级
+  const ensureDriving = useCallback((cb) => {
+    if (!window.AMap) {
+      cb(null)
+      return
+    }
+    if (drivingRef.current) {
+      cb(drivingRef.current)
+      return
+    }
+    window.AMap.plugin('AMap.Driving', () => {
+      drivingRef.current = new window.AMap.Driving({ hideMarkers: true })
+      cb(drivingRef.current)
+    })
+  }, [])
+
+  // 步行路线规划（AMap.Walking）
+  const ensureWalking = useCallback((cb) => {
+    if (!window.AMap) {
+      cb(null)
+      return
+    }
+    if (walkingRef.current) {
+      cb(walkingRef.current)
+      return
+    }
+    window.AMap.plugin('AMap.Walking', () => {
+      walkingRef.current = new window.AMap.Walking({ hideMarkers: true })
+      cb(walkingRef.current)
+    })
+  }, [])
+
   const handleSearchChange = (e) => {
     const v = e.target.value
     setSearchQuery(v)
@@ -268,6 +603,49 @@ export default function GlobePage() {
       return
     }
     setSearching(true)
+
+    // 单城模式：搜索该城市范围内的景点（不再调用行政区划检索）
+    if (activeMode === 'city_detail' && activeCityNode) {
+      searchTimerRef.current = setTimeout(() => {
+        ensurePoiSearch((ps) => {
+          if (!ps) {
+            setSearching(false)
+            setSearchResults([])
+            return
+          }
+          try {
+            ps.setCity(activeCityNode.cityName || '')
+          } catch (err) {
+            console.warn('设置 POI 搜索城市失败：', err)
+          }
+          ps.search(v.trim(), (status, result) => {
+            if (status === 'complete' && result.poiList && result.poiList.pois) {
+              const list = result.poiList.pois
+                .map(p => {
+                  const ll = poiLngLat(p)
+                  if (!ll) return null
+                  return {
+                    poiId: p.id,
+                    name: p.name,
+                    address: p.address || '',
+                    photo: p.photos && p.photos.length > 0 ? p.photos[0].url : '',
+                    lng: ll.lng,
+                    lat: ll.lat,
+                  }
+                })
+                .filter(Boolean)
+              setSearchResults(list)
+            } else {
+              setSearchResults([])
+            }
+            setSearching(false)
+          })
+        })
+      }, 300)
+      return
+    }
+
+    // 总览模式：行政区划检索城市
     searchTimerRef.current = setTimeout(() => {
       ensureDistrictSearch((ds) => {
         if (!ds) {
@@ -296,6 +674,22 @@ export default function GlobePage() {
 
   const handleSelectCity = (city) => {
     addCity(city)
+    setSearchQuery('')
+    setSearchResults([])
+    setSearching(false)
+  }
+
+  // 单城模式：点击下拉项，把景点坐标与名称写入 tripData 的 pois 数组
+  const handleSelectPoi = (poi) => {
+    if (!activeCityId) return
+    addPoi(activeCityId, {
+      poiId: poi.poiId,
+      name: poi.name,
+      lng: poi.lng,
+      lat: poi.lat,
+      stayDuration: 60,
+      tip: poi.address || '',
+    })
     setSearchQuery('')
     setSearchResults([])
     setSearching(false)
@@ -428,12 +822,12 @@ export default function GlobePage() {
 
     const activeCityNode = td.find(n => n.type === 'city' && n.cityId === cityId)
 
-    // 单城模式：聚焦城市 + 打点已勾选景点
+    // 单城模式：聚焦城市 + 打点已勾选景点（带序号，与右侧列表 index+1 对应）
     if (mode === 'city_detail' && activeCityNode && activeCityNode.lng != null && activeCityNode.lat != null) {
       addMarker(activeCityNode.lng, activeCityNode.lat, PIN_MARKER_HTML, -12, -24, null)
-      ;(activeCityNode.pois || []).forEach(poi => {
+      ;(activeCityNode.pois || []).forEach((poi, idx) => {
         if (poi.lng == null || poi.lat == null) return
-        addMarker(poi.lng, poi.lat, POI_MARKER_HTML, -9, -9, null)
+        addMarker(poi.lng, poi.lat, poiNumberMarkerHtml(idx + 1), -12, -12, null)
       })
       try {
         map.setZoomAndCenter(CITY_ZOOM, [Number(activeCityNode.lng), Number(activeCityNode.lat)], false, 600)
@@ -495,11 +889,15 @@ export default function GlobePage() {
 
       if (inTrip) {
         const num = tripNumById.get(city.id)
+        // 底图自带名称的大城市：只留图钉（尾巴尖指向底图城市名），避免文字重叠
+        const isMajor = isMajorCity(city.name)
+        const html = isMajor ? cityPinOnlyMarkerHtml(num) : cityPinMarkerHtml(num, city.name)
+        const offset = isMajor ? [-22, -54] : [-50, -62]
         const m = addMarker(
           city.lng,
           city.lat,
-          cityPinMarkerHtml(num, city.name),
-          -50, -62,
+          html,
+          offset[0], offset[1],
           () => handleCityClick(city),
         )
         m.on('mouseover', () => handleHotZoneEnter(city))
@@ -586,6 +984,7 @@ export default function GlobePage() {
         mapRef.current.destroy()
         mapRef.current = null
         markersRef.current = []
+        transitPolylineRef.current = []
         mapReadyRef.current = false
       }
     }
@@ -595,6 +994,181 @@ export default function GlobePage() {
   useEffect(() => {
     renderMarkers()
   }, [allCities, tripData, activeMode, activeCityId, fitSignal, renderMarkers])
+
+  // 单城模式：按当前交通方式（公交/打车/步行）为相邻景点绘制真实路线，并在绘制完成后 fit 全景
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReadyRef.current || !window.AMap) return
+
+    // 清除上一轮路线与提示
+    transitPolylineRef.current.forEach((p) => { try { p.setMap(null) } catch (e) { /* 忽略 */ } })
+    transitPolylineRef.current = []
+    setTransitInfo([])
+
+    if (activeMode !== 'city_detail') return
+
+    const pois = (activeCityNode?.pois || []).filter(p => p.lng != null && p.lat != null)
+    if (pois.length < 2) return
+
+    const requestId = ++transitRequestIdRef.current
+    const cityName = activeCityNode?.cityName || ''
+    const style = TRANSIT_MODE_STYLE[transitMode] || TRANSIT_MODE_STYLE.transit
+
+    const drawLine = (path, weight = 4, opacity = 0.55) => {
+      if (requestId !== transitRequestIdRef.current) return
+      if (!path || path.length < 2) return
+      const polyline = new window.AMap.Polyline({
+        path,
+        strokeColor: style.color,
+        strokeWeight: weight,
+        strokeOpacity: opacity,
+        strokeStyle: 'solid',
+        lineJoin: 'round',
+        lineCap: 'round',
+      })
+      polyline.setMap(map)
+      transitPolylineRef.current.push(polyline)
+    }
+
+    const setInfo = (i, segments) => {
+      if (requestId !== transitRequestIdRef.current) return
+      setTransitInfo(prev => {
+        const next = [...prev]
+        next[i] = { segments }
+        return next
+      })
+    }
+
+    // 全部绘制完成后，fit 整条路线全景（含内边距）
+    const fitToRoute = () => {
+      if (requestId !== transitRequestIdRef.current) return
+      const overlays = [...markersRef.current, ...transitPolylineRef.current]
+      if (overlays.length === 0) return
+      try {
+        map.setFitView(overlays, false, [60, 60, 60, 60])
+      } catch (e) {
+        console.warn('setFitView 失败：', e)
+      }
+    }
+
+    const searchBy = (instance, origin, dest) => new Promise((resolve) => {
+      instance.search(origin, dest, (status, result) => resolve({ status, result }))
+    })
+
+    ;(async () => {
+      for (let i = 0; i < pois.length - 1; i++) {
+        if (requestId !== transitRequestIdRef.current) return
+        const from = pois[i]
+        const to = pois[i + 1]
+        const origin = [Number(from.lng), Number(from.lat)]
+        const dest = [Number(to.lng), Number(to.lat)]
+
+        let path = null
+        let label = ''
+        let segments = null
+
+        if (transitMode === 'transit') {
+          // 公交/地铁：全链路分段展示（步行 + 地铁/公交 + 步行），查不到就提示不强制降级
+          const transfer = await new Promise((res) => ensureTransfer(cityName, res))
+          if (requestId !== transitRequestIdRef.current) return
+          if (transfer) {
+            try {
+              const { status, result } = await searchBy(transfer, origin, dest)
+              console.log('[AMap.Transfer] status=', status, 'result=', result)
+              if (requestId !== transitRequestIdRef.current) return
+
+              if (status === 'no_data') {
+                // 高德明确返回无公交方案
+                segments = [{ type: 'none', label: '暂无公交，建议打车' }]
+              } else {
+                const plan = extractTransitPlan(result)
+                const totalSec = extractTransitDuration(result, plan)
+                const fallbackLabel = totalSec
+                  ? `🚌 公交/地铁 · 约${Math.max(1, Math.round(totalSec / 60))}分钟`
+                  : '🚌 公交/地铁'
+
+                const parsed = plan ? parseTransferPlan(plan) : []
+                if (parsed.length > 0) {
+                  // 地图：步行细/淡，地铁、公交粗/实
+                  for (const s of parsed) {
+                    if (s.points && s.points.length >= 2) {
+                      drawLine(s.points, s.type === 'walking' ? 2 : 5, s.type === 'walking' ? 0.4 : 0.65)
+                    }
+                  }
+                  segments = parsed.map(s => ({ type: s.type, label: s.label }))
+                } else {
+                  // 有返回但解析不出明细：退化为简单文案 + 直线兜底，绝不丢数据
+                  drawLine([origin, dest])
+                  segments = [{ type: 'bus', label: fallbackLabel }]
+                }
+              }
+            } catch (e) {
+              console.warn('公交/地铁规划失败：', e)
+              drawLine([origin, dest])
+              segments = [{ type: 'bus', label: '🚌 公交/地铁' }]
+            }
+          } else {
+            drawLine([origin, dest])
+            segments = [{ type: 'bus', label: '🚌 公交/地铁' }]
+          }
+        } else if (transitMode === 'driving') {
+          // 打车
+          const driving = await new Promise((res) => ensureDriving(res))
+          if (requestId !== transitRequestIdRef.current) return
+          if (driving) {
+            try {
+              const { status, result } = await searchBy(driving, origin, dest)
+              if (requestId !== transitRequestIdRef.current) return
+              if (status === 'complete' && result && Array.isArray(result.routes) && result.routes.length > 0) {
+                path = extractDrivingPath(result.routes[0])
+                const mins = result.routes[0].time ? Math.max(1, Math.round(result.routes[0].time / 60)) : null
+                label = mins ? `🚕 打车 · 约${mins}分钟` : '🚕 打车'
+              }
+            } catch (e) {
+              console.warn('驾车规划失败：', e)
+            }
+          }
+        } else {
+          // 步行
+          const walking = await new Promise((res) => ensureWalking(res))
+          if (requestId !== transitRequestIdRef.current) return
+          if (walking) {
+            try {
+              const { status, result } = await searchBy(walking, origin, dest)
+              if (requestId !== transitRequestIdRef.current) return
+              if (status === 'complete' && result && Array.isArray(result.routes) && result.routes.length > 0) {
+                path = extractDrivingPath(result.routes[0])
+                const mins = result.routes[0].time ? Math.max(1, Math.round(result.routes[0].time / 60)) : null
+                label = mins ? `🚶 步行 · 约${mins}分钟` : '🚶 步行'
+              }
+            } catch (e) {
+              console.warn('步行规划失败：', e)
+            }
+          }
+        }
+
+        // 打车/步行：查不到时用直线兜底；公交模式保持“暂无公交”提示，不做兜底
+        if (transitMode !== 'transit') {
+          if (!path || path.length < 2) {
+            path = [origin, dest]
+            label = label || (transitMode === 'walking' ? '🚶 步行' : '🚕 打车')
+          }
+          if (path && path.length >= 2) {
+            drawLine(path)
+          }
+          segments = [{ type: transitMode === 'walking' ? 'walking' : 'driving', label: label || '🚕 打车' }]
+        }
+
+        if (segments) {
+          setInfo(i, segments)
+        }
+      }
+
+      // 绘制完成后 fit 整条路线全景
+      fitToRoute()
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMode, activeCityNode?.pois, transitMode])
 
   const handleLogout = () => {
     logout()
@@ -643,17 +1217,47 @@ export default function GlobePage() {
           <input
             value={searchQuery}
             onChange={handleSearchChange}
-            placeholder="搜索城市，添加下一站..."
+            placeholder={
+              activeMode === 'city_detail'
+                ? `搜索${activeCityNode?.cityName || '该城市'}的景点...`
+                : '搜索城市，添加下一站...'
+            }
             className="w-full bg-white/90 backdrop-blur-md rounded-full pl-11 pr-5 py-3 text-sm text-stone-900 placeholder-stone-400 shadow-xl shadow-black/10 border border-white/60 focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
 
-          {/* 下拉匹配列表（向上弹出） */}
+          {/* 下拉匹配列表（向上弹出）：overview 显示城市，city_detail 显示景点 */}
           {searchQuery.trim() && (
-            <div className="absolute left-0 right-0 bottom-full mb-3 bg-white border border-stone-200 rounded-2xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+            <div className="absolute left-0 right-0 bottom-full mb-3 bg-white border border-stone-200 rounded-2xl shadow-xl overflow-hidden max-h-72 overflow-y-auto">
               {searching ? (
                 <p className="px-4 py-3 text-xs text-stone-400 text-center">搜索中…</p>
               ) : searchResults.length === 0 ? (
-                <p className="px-4 py-3 text-xs text-stone-400 text-center">没有匹配的城市</p>
+                <p className="px-4 py-3 text-xs text-stone-400 text-center">
+                  {activeMode === 'city_detail' ? '没有匹配的景点' : '没有匹配的城市'}
+                </p>
+              ) : activeMode === 'city_detail' ? (
+                searchResults.map(poi => (
+                  <button
+                    key={poi.poiId}
+                    onClick={() => handleSelectPoi(poi)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-stone-50 transition"
+                  >
+                    {poi.photo ? (
+                      <img
+                        src={poi.photo}
+                        alt={poi.name}
+                        className="w-10 h-10 rounded-lg object-cover shrink-0 bg-stone-100"
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    ) : (
+                      <span className="w-10 h-10 rounded-lg bg-stone-100 shrink-0 flex items-center justify-center text-stone-300">📍</span>
+                    )}
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm text-stone-700 truncate">{poi.name}</span>
+                      {poi.address && <span className="block text-xs text-stone-400 truncate">{poi.address}</span>}
+                    </span>
+                    <span className="text-xs text-blue-500 shrink-0 ml-2">+ 添加</span>
+                  </button>
+                ))
               ) : (
                 searchResults.map(city => (
                   <button
@@ -734,7 +1338,11 @@ export default function GlobePage() {
           tripData.length > 0 ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <WorkbenchPanel />
+        <WorkbenchPanel
+          transitInfo={transitInfo}
+          transitMode={transitMode}
+          onTransitModeChange={setTransitMode}
+        />
       </div>
     </div>
   )

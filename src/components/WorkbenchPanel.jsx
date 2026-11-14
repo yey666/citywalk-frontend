@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
 import axios from 'axios'
 import {
   DndContext,
@@ -15,35 +15,8 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useTripStore } from '../store/tripStore'
-import Skeleton from './ui/Skeleton'
 
-const LIGHT_INPUT_CLS =
-  'w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500'
-
-const PLACEHOLDER_PHOTOS = ['/bg1.jpg', '/bg2.jpg', '/bg3.jpg']
 const EMPTY_POIS = []
-
-function getPoiPhoto(poi) {
-  if (poi?.photos) {
-    try {
-      const arr = JSON.parse(poi.photos)
-      if (Array.isArray(arr) && arr.length > 0 && arr[0]?.url) return arr[0].url
-    } catch {
-      /* 忽略 */
-    }
-  }
-  const idx = Math.abs(poi?.id || 0) % PLACEHOLDER_PHOTOS.length
-  return PLACEHOLDER_PHOTOS[idx]
-}
-
-function getTomorrowDate() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 function getTodayDate() {
   const d = new Date()
@@ -63,14 +36,6 @@ function normalizeCityName(name) {
 function stationLabel(station, city) {
   if (station) return station
   return normalizeCityName(city) || city || ''
-}
-
-function renderTicketPrice(prices) {
-  if (!prices || typeof prices !== 'object') return '—'
-  const entries = Object.entries(prices)
-  if (entries.length === 0) return '—'
-  const [seat, price] = entries.find(([s]) => s === '二等座') || entries[0]
-  return `${seat} ${price}`
 }
 
 // 根据备注文本猜一个交通图标
@@ -178,159 +143,6 @@ function pickBestTrains(trains) {
   addPick(cheapestIdx, '💰 最便宜')
 
   return picked.slice(0, 3)
-}
-
-// ============ 景点卡片（勾选） ============
-function PoiCard({ poi, checked, onToggle }) {
-  return (
-    <div
-      className={`bg-white border rounded-2xl p-3 transition ${
-        checked ? 'border-blue-300 ring-1 ring-blue-200' : 'border-stone-200 hover:shadow-md'
-      }`}
-    >
-      <div
-        className="h-24 bg-cover bg-center rounded-xl bg-stone-200"
-        style={{ backgroundImage: `url(${getPoiPhoto(poi)})` }}
-      />
-      <div className="pt-2">
-        <h3 className="font-medium text-sm text-stone-900 truncate">{poi.name}</h3>
-        <p className="text-xs text-stone-500 line-clamp-2 mt-1">
-          {poi.description || poi.category || '岭南文化的一角'}
-        </p>
-        <button
-          onClick={() => onToggle(poi)}
-          className={`mt-2 w-full py-1.5 text-xs rounded-lg border font-medium transition ${
-            checked
-              ? 'bg-blue-50 border-blue-200 text-blue-600'
-              : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
-          }`}
-        >
-          {checked ? '✓ 已加入' : '加入行程'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ============ 查票助手（手风琴） ============
-function TicketAssistant() {
-  const [open, setOpen] = useState(false)
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
-  const [date, setDate] = useState(getTomorrowDate)
-  const [results, setResults] = useState([])
-  const [tickets, setTickets] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [hasQueried, setHasQueried] = useState(false)
-
-  const query = async () => {
-    if (!from.trim() || !to.trim() || !date) {
-      setError('请填写出发地、目的地和日期')
-      return
-    }
-    setLoading(true)
-    setError(null)
-    setHasQueried(false)
-    try {
-      const res = await axios.get('/api/train/query', {
-        params: { from: from.trim(), to: to.trim(), date },
-      })
-      setResults(res.data?.trains || [])
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || '查询失败')
-      setResults([])
-    } finally {
-      setLoading(false)
-      setHasQueried(true)
-    }
-  }
-
-  return (
-    <div className="bg-white border border-stone-200 rounded-2xl">
-      <div className="flex items-center justify-between px-4 py-3">
-        <span className="font-semibold text-sm text-stone-900">🚄 查票助手</span>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="text-sm font-medium text-blue-600 hover:text-blue-700 transition"
-        >
-          {open ? '收起 ↑' : '展开 ↓'}
-        </button>
-      </div>
-
-      {open && (
-        <div className="px-4 pb-4 space-y-3">
-          <div className="bg-stone-50 rounded-xl p-3 space-y-2">
-            <input value={from} onChange={e => setFrom(e.target.value)} placeholder="出发地" className={LIGHT_INPUT_CLS} />
-            <input value={to} onChange={e => setTo(e.target.value)} placeholder="目的地" className={LIGHT_INPUT_CLS} />
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className={`${LIGHT_INPUT_CLS} [color-scheme:light]`} />
-            <button
-              onClick={query}
-              disabled={loading}
-              className={`w-full py-2 text-sm rounded-lg font-medium transition ${
-                loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
-            >
-              {loading ? '查询中...' : '查询'}
-            </button>
-
-            {error && <p className="text-sm text-red-500 text-center py-1">{error}</p>}
-
-            {hasQueried && !loading && results.length === 0 && !error && (
-              <p className="text-xs text-gray-400 text-center py-1">暂无车次</p>
-            )}
-
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {results.map((train, idx) => (
-                <div key={`${train.trainNo}-${idx}`} className="bg-white border border-gray-100 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <span className="text-gray-900 text-sm font-medium">{train.trainCode}</span>
-                      <span className="text-xs text-gray-500 ml-2">{train.startTime} → {train.arriveTime}</span>
-                    </div>
-                    <button
-                      onClick={() => setTickets(prev => [...prev, { ...train, date }])}
-                      className="ml-2 px-3 py-1 text-xs bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition shrink-0"
-                    >
-                      记入
-                    </button>
-                  </div>
-                  {train.fromStation && train.toStation && (
-                    <div className="text-xs text-gray-500 mt-1">{train.fromStation} → {train.toStation}</div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-1">{renderTicketPrice(train.prices)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {tickets.length > 0 && (
-            <div className="space-y-2">
-              {tickets.map((t, idx) => (
-                <div key={idx} className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <div className="text-sm text-blue-600 mb-1">🚄 {t.date || '—'}</div>
-                  <div className="text-gray-900 text-sm font-medium">
-                    {t.trainCode}
-                    <span className="text-gray-500 text-xs ml-2">{t.startTime} → {t.arriveTime}</span>
-                  </div>
-                  {t.fromStation && t.toStation && (
-                    <div className="text-xs text-gray-500 mt-1">{t.fromStation} → {t.toStation}</div>
-                  )}
-                  <div className="text-xs text-gray-500 mt-1">{renderTicketPrice(t.prices)}</div>
-                  <button
-                    onClick={() => setTickets(prev => prev.filter((_, i) => i !== idx))}
-                    className="mt-2 text-xs text-gray-500 hover:text-red-500 transition"
-                  >
-                    移除
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ============ 城际交通卡片（默认极简单行，点击展开编辑） ============
@@ -561,7 +373,7 @@ function SortableCityRow({ city, isFirst, prevCity, onOpen, onRemove, onUpdateTr
 }
 
 // ============ 工作台面板（纯组件，运行在 GlobePage 右侧抽屉内） ============
-export default function WorkbenchPanel() {
+export default function WorkbenchPanel({ transitInfo = [], transitMode = 'transit', onTransitModeChange }) {
   const {
     tripData,
     activeMode,
@@ -574,6 +386,7 @@ export default function WorkbenchPanel() {
     updateTransport,
     setTripRouteId,
     removeCity,
+    removePoi,
     reorderCities,
     requestFit,
     resetTrip,
@@ -582,8 +395,6 @@ export default function WorkbenchPanel() {
 
   const activeCityNode = tripData.find(n => n.type === 'city' && n.cityId === activeCityId)
 
-  const [pois, setPois] = useState([])
-  const [poisLoading, setPoisLoading] = useState(false)
   const [optimizing, setOptimizing] = useState(false)
   const [optResult, setOptResult] = useState(null)
   const [toast, setToast] = useState(null)
@@ -615,45 +426,16 @@ export default function WorkbenchPanel() {
     return () => { cancelled = true }
   }, [resetTrip, showToast])
 
-  // 单城模式：拉取该城市 POI
+  // 单城模式：清空优化结果（不再查询本地 POI，景点由用户通过高德搜索实时添加）
   useEffect(() => {
     if (activeMode !== 'city_detail' || !activeCityId) {
-      setPois([])
       setOptResult(null)
-      return
     }
-    setPoisLoading(true)
-    axios.get(`/api/poi/by-city/${activeCityId}`)
-      .then(res => setPois(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setPois([]))
-      .finally(() => setPoisLoading(false))
   }, [activeMode, activeCityId])
-
-  const checkedIds = useMemo(
-    () => new Set((activeCityNode?.pois || []).map(p => p.poiId)),
-    [activeCityNode]
-  )
 
   const cityNodes = tripData.filter(n => n.type === 'city')
   const cityCount = cityNodes.length
   const totalPois = cityNodes.reduce((sum, n) => sum + (n.pois?.length || 0), 0)
-
-  const togglePoi = (poi) => {
-    if (!activeCityId) return
-    const current = activeCityNode?.pois || EMPTY_POIS
-    const exists = current.some(p => p.poiId === poi.id)
-    const next = exists
-      ? current.filter(p => p.poiId !== poi.id)
-      : [...current, {
-          poiId: poi.id,
-          name: poi.name,
-          lng: poi.lng,
-          lat: poi.lat,
-          stayDuration: 60,
-          tip: poi.description || '',
-        }]
-    updateCityPois(activeCityId, next)
-  }
 
   const handleOptimize = async () => {
     const nodes = activeCityNode?.pois || EMPTY_POIS
@@ -872,38 +654,77 @@ export default function WorkbenchPanel() {
           </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            {poisLoading ? (
-              <div className="grid grid-cols-2 gap-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-stone-100 p-3">
-                    <Skeleton className="h-24 w-full rounded-xl bg-stone-200/60" />
-                    <div className="pt-2 space-y-2">
-                      <Skeleton className="h-4 w-2/3 bg-stone-200/60" />
-                      <Skeleton className="h-3 w-full bg-stone-200/60" />
-                      <Skeleton className="h-8 w-full bg-stone-200/60" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : pois.length === 0 ? (
-              <div className="text-center text-stone-400 text-sm py-16">
-                这个城市还没有收录景点
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {pois.map(poi => (
-                  <PoiCard
-                    key={poi.id}
-                    poi={poi}
-                    checked={checkedIds.has(poi.id)}
-                    onToggle={togglePoi}
-                  />
+            {/* 交通方式切换 Tab */}
+            {onTransitModeChange && (
+              <div className="flex gap-2 mb-3">
+                {[
+                  ['transit', '🚌 公交'],
+                  ['driving', '🚕 打车'],
+                  ['walking', '🚶 步行'],
+                ].map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    onClick={() => onTransitModeChange(mode)}
+                    className={`flex-1 py-1.5 text-xs rounded-full border font-medium transition ${
+                      transitMode === mode
+                        ? 'bg-stone-900 text-white border-stone-900'
+                        : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
             )}
+
+            {(activeCityNode?.pois || []).length === 0 ? (
+              <div className="text-center text-stone-400 text-sm py-16">
+                暂无景点，请在下方搜索添加
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {(activeCityNode.pois || []).map((poi, idx) => {
+                  const total = (activeCityNode.pois || []).length
+                  const seg = transitInfo[idx]
+                  return (
+                    <Fragment key={poi.poiId || idx}>
+                      <li className="flex items-center gap-3 bg-white border border-stone-200 rounded-xl px-3 py-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-stone-800 truncate">{poi.name}</div>
+                          {poi.tip && <div className="text-xs text-stone-400 truncate">{poi.tip}</div>}
+                        </div>
+                        <button
+                          onClick={() => removePoi(activeCityId, poi.poiId)}
+                          className="text-stone-300 hover:text-red-400 text-sm shrink-0"
+                          title="移除"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                      {idx < total - 1 && (
+                        <li className="pl-5 text-[11px] text-stone-400">
+                          {seg?.segments?.length ? (
+                            <div className="space-y-0.5 py-0.5">
+                              {seg.segments.map((s, si) => (
+                                <div key={si} className="truncate">{s.label}</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-stone-300">规划路线中…</span>
+                          )}
+                        </li>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </ul>
+            )}
           </div>
 
-          {/* 底部：查票 + AI 优化 */}
+          {/* 底部：AI 优化（同城交通规划暂未接入，仅保留路线优化） */}
           <div className="shrink-0 border-t border-stone-100 px-6 py-4 space-y-3">
             {optResult && (
               <div className="flex items-center justify-between text-sm bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
@@ -916,7 +737,6 @@ export default function WorkbenchPanel() {
                 </span>
               </div>
             )}
-            <TicketAssistant />
             <button
               onClick={handleOptimize}
               disabled={optimizing}
