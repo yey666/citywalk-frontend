@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 import { useTripStore } from '../store/tripStore'
 import WorkbenchPanel from '../components/WorkbenchPanel'
+import AiChatWidget from '../components/AiChatWidget'
 
 // 全国视野（偏东南，让东部繁华区更居中）
 const CHINA_CENTER = [105.5, 32.5]
@@ -1175,6 +1176,12 @@ export default function GlobePage() {
     navigate('/login', { replace: true })
   }
 
+  // AI 导游返回的 POI（第二步「Agent 操作地图」会据此打点）
+  const aiPoisRef = useRef([])
+  const handleAiPois = useCallback((pois) => {
+    aiPoisRef.current = pois
+  }, [])
+
   const cardLeft = hoverPos
     ? Math.min(Math.max(hoverPos.x, 128), Math.max(128, window.innerWidth - 128))
     : 0
@@ -1344,6 +1351,13 @@ export default function GlobePage() {
           onTransitModeChange={setTransitMode}
         />
       </div>
+
+      {/* 左下角 AI 悬浮球（跨城总览与单城模式都可见） */}
+      <AiChatWidget
+        cityName={activeMode === 'city_detail' ? activeCityNode?.cityName || null : null}
+        cityId={activeMode === 'city_detail' ? activeCityId || null : null}
+        onPois={handleAiPois}
+      />
     </div>
   )
 }
