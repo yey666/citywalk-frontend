@@ -559,6 +559,12 @@ export default function WorkbenchPanel({ transitInfo = [], transitMode = 'transi
     return () => clearTimeout(timer)
   }, [tripData, saveTrip, autoSaveEnabled])
 
+  // 返回行程总览前先静默保存一次，避免 2 秒防抖还没触发就切页面导致丢数据
+  const handleBackToOverview = async () => {
+    await saveTrip(true)
+    backToOverview()
+  }
+
   return (
     <div className="h-full flex flex-col pt-20">
       {activeMode === 'overview' ? (
@@ -642,7 +648,7 @@ export default function WorkbenchPanel({ transitInfo = [], transitMode = 'transi
             <div className="flex items-start justify-between">
               <h2 className="text-xl font-bold text-stone-900">{activeCityNode?.cityName}</h2>
               <button
-                onClick={backToOverview}
+                onClick={handleBackToOverview}
                 className="text-xs text-stone-400 hover:text-stone-700 whitespace-nowrap"
               >
                 ← 返回行程总览
