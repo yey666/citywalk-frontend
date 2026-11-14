@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import axios from 'axios'
 import { useTripStore } from '../store/tripStore'
 
 // 解析一段 SSE 事件为 JSON 对象（后端返回 { type:'text'|'pois', ... }）
@@ -109,6 +110,60 @@ function searchPoiByAmap(name, cityName) {
   })
 }
 
+// 明天日期 YYYY-MM-DD
+function getTomorrowDate() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// 去掉“市”后缀，用于城市名匹配
+function normalizeCity(name) {
+  return String(name || '').replace(/市$/, '').trim()
+}
+
+// 在 tripData 里按名称找城市节点
+function findCityNode(state, name) {
+  const norm = normalizeCity(name)
+  if (!norm) return null
+  return state.tripData.find(n => n.type === 'city' && normalizeCity(n.cityName) === norm) || null
+}
+
+// 确保城市在行程里：已存在直接返回节点，否则查高德加进去
+async function ensureCity(name) {
+  const state = useTripStore.getState()
+  const existing = findCityNode(state, name)
+  if (existing) return existing
+  const city = await searchCityByAmap(name)
+  if (!city) return null
+  state.addCity(city)
+  return findCityNode(useTripStore.getState(), name)
+}
+
+// 起止时间转分钟差
+function trainDurationMinutes(start, arrive) {
+  const toMin = (t) => {
+    const [h, m] = String(t).split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
+  }
+  if (!start || !arrive) return null
+  const d = toMin(arrive) - toMin(start)
+  return d > 0 ? d : null
+}
+
+// 选耗时最短的一趟车
+function pickFastestTrain(trains) {
+  if (!Array.isArray(trains) || trains.length === 0) return null
+  return trains.reduce((best, t) => {
+    const bd = trainDurationMinutes(best.startTime, best.arriveTime)
+    const td = trainDurationMinutes(t.startTime, t.arriveTime)
+    return td != null && (bd == null || td < bd) ? t : best
+  }, trains[0])
+}
+
 // 执行 AI 下发的命令，返回一条确认文案
 async function executeCommand(command) {
   try {
@@ -144,8 +199,60 @@ async function executeCommand(command) {
         ? `✅ 已为您自动添加景点：${added.join('、')}`
         : '⚠️ 没有解析到可添加的景点'
     }
+
+    if (command.action === 'optimize_route') {
+      const state = useTripStore.getState()
+      const target = command.cityName
+        ? findCityNode(state, command.cityName)
+        : state.tripData.find(n => n.type === 'city' && n.cityId === state.activeCityId)
+      if (!target) return '⚠️ 没有找到要优化的城市'
+      const pois = target.pois || []
+      if (pois.length < 2) return '⚠️ 至少需要 2 个景点才能优化'
+      const res = await axios.post('/api/route/draft/optimize', { nodes: pois })
+      const optimized = (res.data?.optimizedNodes || []).map(n => ({
+        poiId: n.poiId,
+        name: n.name,
+        lng: n.lng,
+        lat: n.lat,
+        stayDuration: n.stayDuration,
+        tip: n.tip || '',
+      }))
+      useTripStore.getState().updateCityPois(target.cityId, optimized)
+      return '✨ AI 已为您重新规划了最优游玩顺序'
+    }
+
+    if (command.action === 'query_ticket') {
+      const from = String(command.from || '').trim()
+      const to = String(command.to || '').trim()
+      if (!from || !to) return '⚠️ 缺少出发地或目的地'
+      const date = getTomorrowDate()
+
+      const fromNode = await ensureCity(from)
+      const toNode = await ensureCity(to)
+      if (!fromNode || !toNode) return '⚠️ 城市解析失败'
+
+      const res = await axios.get('/api/train/query', {
+        params: { from: normalizeCity(from), to: normalizeCity(to), date },
+      })
+      const trains = res.data?.trains || []
+      if (trains.length === 0) return '⚠️ 没有查到该日期的车次'
+
+      const best = pickFastestTrain(trains)
+      useTripStore.getState().updateTransport(toNode.cityId, {
+        trainCode: best.trainCode || null,
+        fromStation: best.fromStation || null,
+        toStation: best.toStation || null,
+        startTime: best.startTime || null,
+        arriveTime: best.arriveTime || null,
+        duration: best.duration || null,
+        travelDate: date,
+        price: best.price != null ? best.price : null,
+      })
+
+      return `✅ 查到了${trains.length}趟车，最快的是 ${best.trainCode}（${best.startTime} → ${best.arriveTime}）`
+    }
   } catch (e) {
-    return `⚠️ 自动添加失败：${e.message}`
+    return `⚠️ 自动操作失败：${e.message}`
   }
   return null
 }
